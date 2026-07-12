@@ -1,0 +1,50 @@
+# Stock Fundamentals Tracker（MVP）
+
+巴菲特式长期股票基本面追踪系统。设计文档见 `../docs/stock-fundamentals-tracker-design.md`。
+
+## 核心理念
+- **档案驱动**：每只股票是 `stocks/<TICKER>/` 下的一份公司档案（论点、护城河、商业模式、关键决策、机构观点、关键节点、上下游），全部存 git，判断的演变可 diff。
+- **论点先行**：先手工写 thesis.md（投资论点 + Kill Criteria），系统之后的一切追踪都在验证或证伪它。
+- **无变化也是输出**：周报明确报告"无重大变化"。
+- **模型分工省 token**：Haiku 做每日过滤和周报（漏斗，99% 新闻被丢弃），Sonnet 做季度深度分析和空头攻击；档案作为缓存的 system prompt。
+
+## 快速开始
+```bash
+cd stock-tracker
+pip install -r requirements.txt
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# 1. 建档（然后手工填写 stocks/AAPL/thesis.md）
+python -m src.new_stock AAPL
+
+# 2. 每日新闻扫描（Haiku 过滤，值得关注的写入 news_log.md）
+python -m src.daily_scan
+
+# 3. 季度深度分析（Sonnet：趋势/护城河/节点核对/空头攻击 -> 报告 + 方向灯）
+python -m src.quarterly_review AAPL
+
+# 4. 周报（Haiku 汇总，不做新分析）
+python -m src.weekly_report
+```
+
+## 自动化
+`.github/workflows/stock-tracker.yml`：交易日每日扫描、每周六周报，结果自动 commit 回仓库。
+需在仓库 Settings → Secrets 配置 `ANTHROPIC_API_KEY`。
+季度分析建议财报发布后手动触发（workflow_dispatch 选 `quarterly_review`）。
+
+## 目录结构
+```
+config.yaml            观察池（holdings/focus/watch 分层）、模型分工
+templates/             新股票档案模板
+stocks/<TICKER>/       公司档案（thesis/moat/business/decisions/institutions/
+                       milestones.yaml/valuechain.yaml/dashboard.json/
+                       fundamentals.json/news_log.md）
+reports/               季度分析报告、周报
+src/                   脚本
+```
+
+## 下一步（设计文档中的完整路线图）
+- 13F 机构持仓扫描（SEC EDGAR）
+- 事件驱动触发（8-K、股价异动）
+- 静态方向灯总览页
+- 年度复盘 + 估值锚更新流程

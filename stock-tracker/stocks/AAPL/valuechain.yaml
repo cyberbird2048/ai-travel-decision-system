@@ -1,0 +1,13 @@
+# 上下游价值链地图 — 上下游是基本面的领先指标
+upstream: []
+# - 名称:
+#   依赖度: 关键 | 重要 | 可替代
+#   风险:
+#   监控信号:
+downstream: []
+# - 名称:
+#   集中度:
+#   监控信号:
+ecosystem: []       # 互补生态（平台型公司）
+leading_indicators: []  # 3-5 个前瞻信号，财报季 Haiku 顺带扫描
+concentration_redline: 单一客户/供应商 > 20% 营收记入风险清单
