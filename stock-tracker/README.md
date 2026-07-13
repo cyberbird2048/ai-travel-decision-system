@@ -21,11 +21,21 @@ python -m src.new_stock AAPL
 python -m src.daily_scan
 
 # 3. 季度深度分析（Sonnet：趋势/护城河/节点核对/空头攻击 -> 报告 + 方向灯）
+#    内部已自动调用风险因素 diff 与管理层承诺提取，见下方 5/6
 python -m src.quarterly_review AAPL
 
 # 4. 周报（Haiku 汇总，不做新分析）
 python -m src.weekly_report
+
+# 5. 风险因素逐年 diff（SEC EDGAR 10-K，Haiku 中文总结新增/删除/加重的风险 -> risk_log.md）
+python -m src.risk_diff AAPL
+
+# 6. 管理层承诺提取（SEC EDGAR 10-K/10-Q MD&A，Haiku 结构化抽取 + 去重 -> milestones.yaml）
+python -m src.commitments AAPL
 ```
+
+`src.risk_diff` / `src.commitments` 依赖 `src/edgar.py` 访问 SEC EDGAR 官方 JSON API，
+使用前请在 `config.yaml` 的 `edgar.user_agent` 填上真实联系邮箱（SEC 要求 User-Agent 带联系方式）。
 
 ## 自动化
 `.github/workflows/stock-tracker.yml`：交易日每日扫描、每周六周报，结果自动 commit 回仓库。
@@ -48,3 +58,6 @@ src/                   脚本
 - 事件驱动触发（8-K、股价异动）
 - 静态方向灯总览页
 - 年度复盘 + 估值锚更新流程
+
+已完成：风险因素逐年 diff（`src/risk_diff.py`）、管理层承诺提取与去重（`src/commitments.py`），
+均基于 `src/edgar.py` 对 SEC EDGAR 的采集，并已接入季度深度分析流程。

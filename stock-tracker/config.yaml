@@ -23,3 +23,7 @@ budget:
 models:
   filter: claude-haiku-4-5      # 每日新闻过滤、周报汇总
   analyze: claude-sonnet-5      # 季度深度分析、空头攻击
+
+# SEC EDGAR 采集（10-K/10-Q/8-K 原始文件）。请替换成你自己的邮箱，SEC 要求 User-Agent 里带联系方式。
+edgar:
+  user_agent: "stock-tracker your-email@example.com"

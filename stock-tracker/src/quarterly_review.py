@@ -8,6 +8,8 @@ import re
 import sys
 from datetime import date
 
+from . import commitments as commitments_mod
+from . import risk_diff as risk_diff_mod
 from .dossier import (REPORTS, load_dossier_text, save_dashboard,
                       stock_dir, watchlist)
 from .fetch import fetch_fundamentals
@@ -34,6 +36,18 @@ PROMPT = """最新基本面快照：
 
 
 def review(ticker: str) -> None:
+    # SEC EDGAR 原始文件核对：风险因素 diff + 管理层承诺提取，均独立 try/except，
+    # 失败（网络问题、EDGAR 结构变化等）不阻塞主流程的 Sonnet 深度分析
+    try:
+        risk_diff_mod.run(ticker)
+    except Exception as e:
+        print(f"警告：风险因素 diff 失败（{e}），已跳过")
+
+    try:
+        commitments_mod.run(ticker)
+    except Exception as e:
+        print(f"警告：管理层承诺提取失败（{e}），已跳过")
+
     snapshot = fetch_fundamentals(ticker)
     dossier = load_dossier_text(ticker)
     report = sonnet(
