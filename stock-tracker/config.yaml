@@ -15,6 +15,10 @@ institutions:
 news_feeds:
   - https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US
 
+# 每周 LLM 预算（美元）。超预算后每日扫描自动降频（只扫 holdings 层）
+budget:
+  weekly_usd: 5.0
+
 # 模型分工：token 消耗大的任务全部用 sonnet / haiku
 models:
   filter: claude-haiku-4-5      # 每日新闻过滤、周报汇总

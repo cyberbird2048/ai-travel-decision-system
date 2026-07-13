@@ -1,6 +1,7 @@
 """周报（Haiku，只汇总已有结论，不做新分析）：python -m src.weekly_report"""
 from datetime import date
 
+from .costs import weekly_summary
 from .dossier import REPORTS, load_dashboard, stock_dir, watchlist
 from .llm import haiku
 
@@ -24,10 +25,15 @@ def build() -> str:
         "再明确列出'本周无重大变化'的股票（这也是有价值的信息）。不要新增分析。\n\n"
         + "\n\n".join(sections),
         max_tokens=2000,
+        task="weekly_report",
     )
+    cost = weekly_summary()
     REPORTS.mkdir(exist_ok=True)
     out = REPORTS / f"weekly_{date.today().isoformat()}.md"
-    out.write_text(f"# 周报 {date.today()}\n\n{summary}", encoding="utf-8")
+    out.write_text(
+        f"# 周报 {date.today()}\n\n{summary}\n\n---\n\n## 成本\n{cost}",
+        encoding="utf-8",
+    )
     print(f"周报已写入 {out}")
     return summary
 

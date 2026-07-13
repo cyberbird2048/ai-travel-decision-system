@@ -39,6 +39,7 @@ def review(ticker: str) -> None:
     report = sonnet(
         PROMPT.format(snapshot=json.dumps(snapshot, ensure_ascii=False, indent=2)),
         dossier_context=dossier,
+        task="quarterly_review",
     )
 
     REPORTS.mkdir(exist_ok=True)
