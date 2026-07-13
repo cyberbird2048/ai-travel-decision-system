@@ -74,6 +74,13 @@ def get_cik(ticker: str) -> str:
     return cik
 
 
+def submissions(cik: str) -> dict:
+    """返回某个 CIK 的完整 submissions JSON（原始，未做表单过滤）。cik 可以不补零，内部会 zfill(10)。"""
+    cik10 = str(cik).zfill(10)
+    resp = _get(SUBMISSIONS_URL.format(cik=cik10))
+    return resp.json()
+
+
 def latest_filings(ticker: str, forms=("10-K", "10-Q", "8-K"), limit: int = 10) -> list[dict]:
     """返回最近的公告清单：[{form, filing_date, accession, document, url}, ...]，按时间倒序。"""
     cik = get_cik(ticker)

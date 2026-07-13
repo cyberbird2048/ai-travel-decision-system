@@ -17,7 +17,13 @@ import yfinance as yf
 
 from . import edgar
 from .costs import over_budget
-from .dossier import REPORTS, load_config, load_dossier_text, stock_dir, watchlist
+from .dossier import REPORTS, due_today, load_config, load_dossier_text, stock_dir, watchlist
+
+_TIER_MSG = {
+    "holdings": "holdings 层每日扫描",
+    "focus": "focus 层每周一扫描",
+    "watch": "watch 层每月1日扫描",
+}
 from .llm import haiku_json, sonnet
 
 STATE_FILE = None  # 延迟初始化，见 _state_file()
@@ -270,6 +276,9 @@ def main() -> None:
     state = _load_state()
     for s in watchlist():
         ticker = s["ticker"]
+        if not due_today(s.get("tier", "holdings")):
+            print(f"跳过 {ticker}: {_TIER_MSG.get(s.get('tier'), 'holdings 层每日扫描')}")
+            continue
         try:
             process_ticker(ticker, cfg, state)
         except Exception as e:

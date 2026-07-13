@@ -38,6 +38,13 @@ python -m src.events
 
 # 8. 判断回测（回看 N 个月前的方向灯/论点/季度报告，对照现在评估对错 -> 教训写入 lessons.md）
 python -m src.backtest AAPL 6
+
+# 9. 13F 机构持仓扫描（SEC EDGAR，对比最近两期持仓变动 -> Haiku 中文摘要 -> institutions.md）
+#    每季度手动或定时运行一次，13F-HR 是季度披露，跑得更频繁也不会有新数据
+python -m src.institutions_13f
+
+# 10. 方向灯静态总览页（不调用 LLM，纯汇总 dashboard.json + light_history.md）
+python -m src.overview
 ```
 
 `src.risk_diff` / `src.commitments` 依赖 `src/edgar.py` 访问 SEC EDGAR 官方 JSON API，
@@ -64,6 +71,16 @@ news_log/event_log/risk_log）逐项评估：哪些预警对了、哪些变化�
 `dossier.DOSSIER_FILES`，会自动进入之后所有 Sonnet 分析（季度复查、事件分析、方向灯对抗验证）
 的上下文，让系统"记住"过去判断错在哪。
 
+## 观察池分层调度
+`config.yaml` 的 `watchlist` 按 `tier` 分三层，扫描频率不同（`src/dossier.py` 的
+`due_today()` 判断，`src/daily_scan.py` / `src/events.py` 在处理每只股票前都会检查）：
+- `holdings`（持仓）：每日扫描
+- `focus`（高关注）：每周一扫描
+- `watch`（观察）：每月 1 日扫描
+
+未知层级按 `holdings` 处理（每日扫描）。这与预算超支时"只扫 holdings 层"的降频逻辑是叠加关系，
+两者都要满足才会真正扫描。
+
 ## 目录结构
 ```
 config.yaml            观察池（holdings/focus/watch 分层）、模型分工
@@ -76,8 +93,6 @@ src/                   脚本
 ```
 
 ## 下一步（设计文档中的完整路线图）
-- 13F 机构持仓扫描（SEC EDGAR）
-- 静态方向灯总览页
 - 年度复盘 + 估值锚更新流程
 
 已完成：风险因素逐年 diff（`src/risk_diff.py`）、管理层承诺提取与去重（`src/commitments.py`），
@@ -87,4 +102,8 @@ src/                   脚本
 做深度分析（漏斗第二层，输出报告到 `reports/`，只建议方向灯变化、不直接改 dashboard.json）；
 方向灯两票制（`src/lights.py`）——变灯提议需通过独立的 Sonnet 对抗验证才生效，历史记录写入
 `light_history.md`；判断回测 + 经验库（`src/backtest.py`）——回看历史判断的对错，教训沉淀到
-`lessons.md` 并自动进入之后所有分析的上下文。
+`lessons.md` 并自动进入之后所有分析的上下文；13F 机构持仓扫描（`src/institutions_13f.py`）——
+对比知名机构最近两期 13F-HR 持仓，显著变动（>=20% 或建仓/清仓）写入 `institutions.md`；
+观察池分层调度（`src/dossier.py` 的 `due_today()`）——holdings/focus/watch 三层不同扫描频率；
+静态方向灯总览页（`src/overview.py`）——汇总所有股票方向灯生成 `overview.html`，近 30 天有
+变灯的股票排在最前并标注。

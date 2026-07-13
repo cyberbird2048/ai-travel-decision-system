@@ -1,5 +1,6 @@
 """公司档案的读写。每只股票是 stocks/<TICKER>/ 下的一组 markdown/yaml/json 文件。"""
 import json
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -52,3 +53,14 @@ def load_config() -> dict:
 
 def watchlist() -> list[dict]:
     return load_config()["watchlist"]
+
+
+def due_today(tier: str, today: date | None = None) -> bool:
+    """观察池分层扫描频率：holdings 每日 / focus 每周一 / watch 每月1日。未知层级按每日处理。"""
+    if today is None:
+        today = date.today()
+    if tier == "focus":
+        return today.weekday() == 0  # 周一
+    if tier == "watch":
+        return today.day == 1
+    return True  # holdings 及未知层级：每日

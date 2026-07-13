@@ -8,7 +8,13 @@
 from datetime import date
 
 from .costs import over_budget, spend_since
-from .dossier import stock_dir, watchlist, append_log
+from .dossier import due_today, stock_dir, watchlist, append_log
+
+_TIER_MSG = {
+    "holdings": "holdings 层每日扫描",
+    "focus": "focus 层每周一扫描",
+    "watch": "watch 层每月1日扫描",
+}
 from .fetch import fetch_news
 from .llm import haiku_json_batch
 
@@ -55,6 +61,14 @@ def main() -> None:
     if over_budget():
         print(f"⚠️ 本周花费 ${spend_since(7):.2f} 已超预算，本次只扫描 holdings 层")
         stocks = [s for s in stocks if s["tier"] == "holdings"]
+
+    due_stocks = []
+    for s in stocks:
+        if due_today(s.get("tier", "holdings")):
+            due_stocks.append(s)
+        else:
+            print(f"跳过 {s['ticker']}: {_TIER_MSG.get(s.get('tier'), 'holdings 层每日扫描')}")
+    stocks = due_stocks
 
     news_by_ticker = {s["ticker"]: fetch_news(s["ticker"]) for s in stocks}
     prompts = {

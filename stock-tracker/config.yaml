@@ -5,11 +5,14 @@ watchlist:
   # - ticker: NVDA
   #   tier: focus
 
-# 追踪的知名长期投资机构（13F 扫描名单，后续版本使用）
+# 追踪的知名长期投资机构（13F 扫描名单，见 src/institutions_13f.py）
 institutions:
-  - Berkshire Hathaway
-  - Himalaya Capital
-  - Baillie Gifford
+  - name: Berkshire Hathaway
+    cik: "0001067983"
+  - name: Himalaya Capital
+    cik: "0001709323"
+  - name: Baillie Gifford
+    cik: "0001088875"
 
 # 新闻 RSS 源（可按需增删）
 news_feeds:
