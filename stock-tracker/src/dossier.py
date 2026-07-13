@@ -10,7 +10,7 @@ REPORTS = ROOT / "reports"
 
 DOSSIER_FILES = [
     "thesis.md", "moat.md", "business.md", "decisions.md",
-    "institutions.md", "milestones.yaml", "valuechain.yaml",
+    "institutions.md", "milestones.yaml", "valuechain.yaml", "lessons.md",
 ]
 
 

@@ -35,6 +35,9 @@ python -m src.commitments AAPL
 
 # 7. 事件驱动触发（新 8-K / 单日股价异动 -> Haiku 严重度分级 -> 高分事件 Sonnet 深度分析）
 python -m src.events
+
+# 8. 判断回测（回看 N 个月前的方向灯/论点/季度报告，对照现在评估对错 -> 教训写入 lessons.md）
+python -m src.backtest AAPL 6
 ```
 
 `src.risk_diff` / `src.commitments` 依赖 `src/edgar.py` 访问 SEC EDGAR 官方 JSON API，
@@ -45,14 +48,30 @@ python -m src.events
 需在仓库 Settings → Secrets 配置 `ANTHROPIC_API_KEY`。
 季度分析建议财报发布后手动触发（workflow_dispatch 选 `quarterly_review`）。
 
+## 方向灯两票制
+季度深度分析（`src.quarterly_review`）末尾由 Sonnet 提出方向灯变更建议，这只是"提议票"；
+`src/lights.py` 会对每个颜色发生变化的维度再发起一次独立的 Sonnet 对抗验证（"质疑票"，
+让模型扮演质疑者反驳变灯理由），只有验证通过（uphold）才真正写入 dashboard.json，
+否则保守维持原灯（reject，含 JSON 解析失败）。同一次季度分析中多个维度同时变灯，只打包成
+**一次**对抗验证调用（省 token）。每次变化（无论成立与否）都记一行到
+`stocks/<TICKER>/light_history.md`，颜色不变的维度直接采纳新 reason，不需要验证。
+
+## 判断回测 + 经验库
+`src.backtest TICKER [months]`（默认 6 个月）用 git 历史找回约 N 个月前该股票档案的方向灯 +
+论点 + 当时前后最近一份季度报告，交给 Sonnet 对照现在的档案（含之后的
+news_log/event_log/risk_log）逐项评估：哪些预警对了、哪些变化被漏掉、哪些是误报，
+提炼 1-3 条可执行的教训写入 `stocks/<TICKER>/lessons.md`。`lessons.md` 已加入
+`dossier.DOSSIER_FILES`，会自动进入之后所有 Sonnet 分析（季度复查、事件分析、方向灯对抗验证）
+的上下文，让系统"记住"过去判断错在哪。
+
 ## 目录结构
 ```
 config.yaml            观察池（holdings/focus/watch 分层）、模型分工
 templates/             新股票档案模板
 stocks/<TICKER>/       公司档案（thesis/moat/business/decisions/institutions/
                        milestones.yaml/valuechain.yaml/dashboard.json/
-                       fundamentals.json/news_log.md）
-reports/               季度分析报告、周报
+                       fundamentals.json/news_log.md/lessons.md/light_history.md）
+reports/               季度分析报告、周报、回测报告
 src/                   脚本
 ```
 
@@ -65,4 +84,7 @@ src/                   脚本
 均基于 `src/edgar.py` 对 SEC EDGAR 的采集，并已接入季度深度分析流程；
 事件驱动触发（`src/events.py`）——新 8-K 公告 / 单日股价异动 >= 阈值时，先用 Haiku 做 1-5 分
 严重度分级（漏斗第一层，全部事件写入 `event_log.md`），severity 达到阈值的再用 Sonnet
-做深度分析（漏斗第二层，输出报告到 `reports/`，只建议方向灯变化、不直接改 dashboard.json）。
+做深度分析（漏斗第二层，输出报告到 `reports/`，只建议方向灯变化、不直接改 dashboard.json）；
+方向灯两票制（`src/lights.py`）——变灯提议需通过独立的 Sonnet 对抗验证才生效，历史记录写入
+`light_history.md`；判断回测 + 经验库（`src/backtest.py`）——回看历史判断的对错，教训沉淀到
+`lessons.md` 并自动进入之后所有分析的上下文。

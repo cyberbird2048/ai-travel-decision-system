@@ -10,9 +10,9 @@ from datetime import date
 
 from . import commitments as commitments_mod
 from . import risk_diff as risk_diff_mod
-from .dossier import (REPORTS, load_dossier_text, save_dashboard,
-                      stock_dir, watchlist)
+from .dossier import REPORTS, load_dossier_text, stock_dir, watchlist
 from .fetch import fetch_fundamentals
+from .lights import apply_with_two_votes
 from .llm import sonnet
 
 PROMPT = """最新基本面快照：
@@ -61,16 +61,12 @@ def review(ticker: str) -> None:
     out.write_text(f"# {ticker} 季度深度分析 {date.today()}\n\n{report}", encoding="utf-8")
     print(f"报告已写入 {out}")
 
-    # 从报告末尾提取方向灯 JSON 并更新 dashboard
+    # 从报告末尾提取方向灯 JSON 提议，经两票制（提议 + 对抗验证）后写入 dashboard
     m = re.findall(r"```json\s*(\{.*?\})\s*```", report, re.S)
     if m:
-        lights = json.loads(m[-1])
-        save_dashboard(ticker, {
-            "ticker": ticker,
-            "updated": date.today().isoformat(),
-            "lights": lights,
-        })
-        print("方向灯已更新：", {k: v["color"] for k, v in lights.items()})
+        proposed_lights = json.loads(m[-1])
+        final_lights = apply_with_two_votes(ticker, proposed_lights)
+        print("方向灯（两票制后）：", {k: v["color"] for k, v in final_lights.items()})
     else:
         print("警告：报告中未找到方向灯 JSON，dashboard 未更新")
 
