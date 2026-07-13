@@ -85,10 +85,11 @@ def latest_filings(ticker: str, forms=("10-K", "10-Q", "8-K"), limit: int = 10) 
     dates = recent.get("filingDate", [])
     accessions = recent.get("accessionNumber", [])
     docs = recent.get("primaryDocument", [])
+    items_list = recent.get("items", [])  # 8-K 的 Item 编号，如 "2.02,9.01"；其他表单通常为空字符串
 
     cik_int = int(cik)
     out = []
-    for form, fdate, accession, doc in zip(forms_list, dates, accessions, docs):
+    for i, (form, fdate, accession, doc) in enumerate(zip(forms_list, dates, accessions, docs)):
         if forms and form not in forms:
             continue
         accession_nodash = accession.replace("-", "")
@@ -99,6 +100,7 @@ def latest_filings(ticker: str, forms=("10-K", "10-Q", "8-K"), limit: int = 10) 
             "accession": accession,
             "document": doc,
             "url": url,
+            "items": items_list[i] if i < len(items_list) else "",
         })
         if len(out) >= limit:
             break

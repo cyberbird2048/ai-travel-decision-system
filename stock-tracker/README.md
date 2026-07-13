@@ -32,6 +32,9 @@ python -m src.risk_diff AAPL
 
 # 6. 管理层承诺提取（SEC EDGAR 10-K/10-Q MD&A，Haiku 结构化抽取 + 去重 -> milestones.yaml）
 python -m src.commitments AAPL
+
+# 7. 事件驱动触发（新 8-K / 单日股价异动 -> Haiku 严重度分级 -> 高分事件 Sonnet 深度分析）
+python -m src.events
 ```
 
 `src.risk_diff` / `src.commitments` 依赖 `src/edgar.py` 访问 SEC EDGAR 官方 JSON API，
@@ -55,9 +58,11 @@ src/                   脚本
 
 ## 下一步（设计文档中的完整路线图）
 - 13F 机构持仓扫描（SEC EDGAR）
-- 事件驱动触发（8-K、股价异动）
 - 静态方向灯总览页
 - 年度复盘 + 估值锚更新流程
 
 已完成：风险因素逐年 diff（`src/risk_diff.py`）、管理层承诺提取与去重（`src/commitments.py`），
-均基于 `src/edgar.py` 对 SEC EDGAR 的采集，并已接入季度深度分析流程。
+均基于 `src/edgar.py` 对 SEC EDGAR 的采集，并已接入季度深度分析流程；
+事件驱动触发（`src/events.py`）——新 8-K 公告 / 单日股价异动 >= 阈值时，先用 Haiku 做 1-5 分
+严重度分级（漏斗第一层，全部事件写入 `event_log.md`），severity 达到阈值的再用 Sonnet
+做深度分析（漏斗第二层，输出报告到 `reports/`，只建议方向灯变化、不直接改 dashboard.json）。

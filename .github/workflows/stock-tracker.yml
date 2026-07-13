@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: 'daily_scan | weekly_report | quarterly_review'
+        description: 'daily_scan | weekly_report | quarterly_review | events'
         default: 'daily_scan'
 
 jobs:
@@ -37,6 +37,9 @@ jobs:
             echo "task=daily_scan" >> "$GITHUB_OUTPUT"
           fi
       - run: python -m src.${{ steps.task.outputs.task }}
+      - name: Event-driven triggers (8-K / price move)
+        if: steps.task.outputs.task == 'daily_scan'
+        run: python -m src.events
       - name: Commit dossier updates
         run: |
           cd ..
@@ -44,5 +47,6 @@ jobs:
           git config user.email "bot@users.noreply.github.com"
           git add stock-tracker/stocks stock-tracker/reports
           [ ! -f stock-tracker/costs.jsonl ] || git add stock-tracker/costs.jsonl
+          [ ! -f stock-tracker/state.json ] || git add stock-tracker/state.json
           git diff --cached --quiet || git commit -m "chore(stock-tracker): ${{ steps.task.outputs.task }} $(date -u +%F)"
           git push
