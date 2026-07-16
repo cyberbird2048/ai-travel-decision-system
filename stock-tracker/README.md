@@ -6,13 +6,22 @@
 - **档案驱动**：每只股票是 `stocks/<TICKER>/` 下的一份公司档案（论点、护城河、商业模式、关键决策、机构观点、关键节点、上下游），全部存 git，判断的演变可 diff。
 - **论点先行**：先手工写 thesis.md（投资论点 + Kill Criteria），系统之后的一切追踪都在验证或证伪它。
 - **无变化也是输出**：周报明确报告"无重大变化"。
-- **模型分工省 token**：Haiku 做每日过滤和周报（漏斗，99% 新闻被丢弃），Sonnet 做季度深度分析和空头攻击；档案作为缓存的 system prompt。
+- **模型分工省 token**：deepseek-chat 做每日过滤和周报（漏斗，99% 新闻被丢弃），deepseek-reasoner 做季度深度分析和空头攻击；档案作为 system prompt 靠前内容，依赖 DeepSeek 服务端自动前缀缓存。
+
+## 模型供应商：DeepSeek
+本系统调用 DeepSeek 的 OpenAI 兼容 API（`src/llm.py`），而非 Anthropic：
+- `deepseek-chat` 承担之前 Haiku 的角色（过滤/提取/汇总）
+- `deepseek-reasoner` 承担之前 Sonnet 的角色（深度分析，自带思维链推理）
+- DeepSeek 无 Batch API，`haiku_json_batch` 退化为逐条调用，不再有半价折扣
+- DeepSeek 服务端自动做前缀缓存计费（无需显式声明），价格表在 `src/costs.py` 的 `DEEPSEEK_PRICES`，
+  **务必到 [DeepSeek 官网价格页](https://api-docs.deepseek.com/quick_start/pricing) 核对最新数字**——
+  记录时的价格会过期，官网调价不会自动同步到代码里。
 
 ## 快速开始
 ```bash
 cd stock-tracker
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...
+export DEEPSEEK_API_KEY=sk-...
 
 # 1. 建档（然后手工填写 stocks/AAPL/thesis.md）
 python -m src.new_stock AAPL
@@ -52,7 +61,7 @@ python -m src.overview
 
 ## 自动化
 `.github/workflows/stock-tracker.yml`：交易日每日扫描、每周六周报，结果自动 commit 回仓库。
-需在仓库 Settings → Secrets 配置 `ANTHROPIC_API_KEY`。
+需在仓库 Settings → Secrets 配置 `DEEPSEEK_API_KEY`。
 季度分析建议财报发布后手动触发（workflow_dispatch 选 `quarterly_review`）。
 
 ## 方向灯两票制

@@ -22,10 +22,10 @@ news_feeds:
 budget:
   weekly_usd: 5.0
 
-# 模型分工：token 消耗大的任务全部用 sonnet / haiku
+# 模型分工（供应商：DeepSeek，实际模型名见 src/llm.py 的 HAIKU/SONNET 常量，此处仅作说明）
 models:
-  filter: claude-haiku-4-5      # 每日新闻过滤、周报汇总
-  analyze: claude-sonnet-5      # 季度深度分析、空头攻击
+  filter: deepseek-chat        # 每日新闻过滤、周报汇总（对应之前的 Haiku 角色）
+  analyze: deepseek-reasoner    # 季度深度分析、空头攻击（对应之前的 Sonnet 角色，自带推理链）
 
 # SEC EDGAR 采集（10-K/10-Q/8-K 原始文件）。请替换成你自己的邮箱，SEC 要求 User-Agent 里带联系方式。
 edgar:
