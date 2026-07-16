@@ -29,7 +29,7 @@ models:
 
 # SEC EDGAR 采集（10-K/10-Q/8-K 原始文件）。请替换成你自己的邮箱，SEC 要求 User-Agent 里带联系方式。
 edgar:
-  user_agent: "stock-tracker your-email@example.com"
+  user_agent: "stock-tracker wangzebinovo@gmail.com"
 
 # 事件驱动触发（8-K、股价异动）
 events:
