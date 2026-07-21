@@ -54,6 +54,11 @@ python -m src.institutions_13f
 
 # 10. 方向灯静态总览页（不调用 LLM，纯汇总 dashboard.json + light_history.md）
 python -m src.overview
+
+# 11. 估值锚自动刷新（不调用 LLM，纯数据脚本；不带参数则跑整个 watchlist）
+#     取 yfinance 分析师目标价分布 low/median/high，按“悲观=最低价~中位数下半段，
+#     基准=中位数并向下偏保守的半区间，乐观=中位数~最高价”写入 thesis.md 的估值锚表格
+python -m src.valuation_anchor AAPL
 ```
 
 `src.risk_diff` / `src.commitments` 依赖 `src/edgar.py` 访问 SEC EDGAR 官方 JSON API，
