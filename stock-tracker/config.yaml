@@ -1,0 +1,37 @@
+# 观察池分层：holdings（持仓）/ focus（高关注）/ watch（观察）
+watchlist:
+  - ticker: AAPL
+    tier: holdings
+  # - ticker: NVDA
+  #   tier: focus
+
+# 追踪的知名长期投资机构（13F 扫描名单，见 src/institutions_13f.py）
+institutions:
+  - name: Berkshire Hathaway
+    cik: "0001067983"
+  - name: Himalaya Capital
+    cik: "0001709323"
+  - name: Baillie Gifford
+    cik: "0001088875"
+
+# 新闻 RSS 源（可按需增删）
+news_feeds:
+  - https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US
+
+# 每周 LLM 预算（美元）。超预算后每日扫描自动降频（只扫 holdings 层）
+budget:
+  weekly_usd: 5.0
+
+# 模型分工（供应商：DeepSeek，实际模型名见 src/llm.py 的 HAIKU/SONNET 常量，此处仅作说明）
+models:
+  filter: deepseek-chat        # 每日新闻过滤、周报汇总（对应之前的 Haiku 角色）
+  analyze: deepseek-reasoner    # 季度深度分析、空头攻击（对应之前的 Sonnet 角色，自带推理链）
+
+# SEC EDGAR 采集（10-K/10-Q/8-K 原始文件）。请替换成你自己的邮箱，SEC 要求 User-Agent 里带联系方式。
+edgar:
+  user_agent: "stock-tracker wangzebinovo@gmail.com"
+
+# 事件驱动触发（8-K、股价异动）
+events:
+  price_move_pct: 8       # 单日涨跌幅触发阈值（%）
+  severity_threshold: 3   # >= 此分才进 Sonnet 深度分析
