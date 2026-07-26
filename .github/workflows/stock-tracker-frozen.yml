@@ -1,0 +1,23 @@
+# stock-tracker/ 已于 2026-07 迁至 cyberbird2048/invest-os，本仓库中的副本已冻结。
+# 本守卫在任何改动 stock-tracker/（除 MOVED.md）的 push 上直接报红，防止工作漂移回旧位置。
+name: stock-tracker-frozen-guard
+on:
+  push:
+    paths:
+      - 'stock-tracker/**'
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Fail if frozen stock-tracker was modified
+        run: |
+          CHANGED=$(git diff --name-only HEAD^ HEAD -- 'stock-tracker/' ':!stock-tracker/MOVED.md')
+          if [ -n "$CHANGED" ]; then
+            echo "::error::stock-tracker/ 已迁至 https://github.com/cyberbird2048/invest-os （main 分支），本仓库中的副本已冻结。以下改动提交错了仓库："
+            echo "$CHANGED"
+            exit 1
+          fi
+          echo "仅 MOVED.md 变动，放行。"
