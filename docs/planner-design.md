@@ -1,4 +1,4 @@
-# 旅行规划师 · 规划层设计文档（v1）
+# 旅行规划师 · 规划层设计文档（v1.1）
 
 > 本文档是规划层的产品与架构蓝图，交给执行方（codex）落地。当前仓库中的静态原型（index.html / engine/planner.js / h5.html）是 M0 骨架，本文定义 M1–M3 要长成什么样。
 
@@ -213,7 +213,36 @@
 
 ---
 
-## 6. 风险与开放问题
+## 6. 竞品对照与吸收（v1.1 增补）
+
+对照了三类参照物：GitHub 开源旅行规划项目（Wanderlog 类、AI itinerary generator 类）、国内 OTA 的 AI 产品（飞猪"问一问"多智能体、携程/Trip.com TripGenie）、Booking.com 的 GenAI 套件（AI Trip Planner / Smart Filter / Property Q&A / Review Summaries）。共性优点及吸收方式：
+
+### 6.1 吸收进本方案的 7 个模式
+
+| # | 模式 | 来源 | 吸收方式（落点） |
+|---|---|---|---|
+| 1 | **地理聚类排程 + 地图一等公民** | Wanderlog（route optimize）、多数开源项目都有地图视图 | 组排新增硬约束：同一天的槽位必须在同一片区（POI 带 `geo` 与 `cluster` 字段），跨片区折返计为组排失败重排；规划台与 H5 各加一个逐日地图视图（高德 JS SDK / Leaflet+OSM 降级）。落 M1（约束）+ M3（地图 UI） |
+| 2 | **自然语言即筛选器** | Booking Smart Filter（"要有屋顶酒吧和运河景观"→自动转筛选） | 批注动作 ⟳ 换一个支持带修饰词："换一个，要人少的" → LLM 解析为域过滤条件后再检索，而不是盲换。落 M1，PlanCard 增加 `swapHint` 字段 |
+| 3 | **证据化推荐** | Booking Review Summaries、开源"evidence-backed itineraries" | Reason 之外增加 EvidencePack：每张 POI/酒店区位卡带评分快照、来源链接、1 句评论摘要（有接口时），无接口时标"知识库条目 + 最后人工校对日期"。落 M2 |
+| 4 | **预算是一等约束** | 飞猪问一问（"带娃游成都，预算5000"→方案带精确费用） | TripBrief 的 `budgetTier` 升级为 `budget: {tier, amount?, currency}`；每张卡带 `costEstimate`；草案顶部常驻预算条（估算合计 vs 预算，超支时标红并指出最贵可替换项）。落 M1 schema + M2 UI |
+| 5 | **域 agent 管线（不是营销叙事）** | 飞猪问一问的路线定制师/交通顾问/预算管理师分工 | 大脑从"单次大 prompt"改为管线：解析 → 各域检索（并行）→ 组排 → 预算核对 → 理由生成，每步独立可测、可降级。这是实现架构不是产品概念，界面上不出现"八个小助手"。落 M1 |
+| 6 | **行中主动服务** | TripGenie（proactive trip management）、TripIt（travel-day info） | H5 行中模式加"时间敏感提醒轴"：值机窗口、酒店退房、末班车/末班快线、景点闭馆前 1 小时；数据来自计划本身推导（本地通知/日历，不依赖服务端推送）。落 M3 |
+| 7 | **导出与轻协作** | Wanderlog（多人同编、离线、导出）、TripIt（ics 聚合） | H5 增加导出 .ics（逐日槽位进日历）与打印样式；分享链接升级为"同行人批注"轻协作：无账号，链接+昵称，同行人可对卡片投 👍/👎，回流为 FeedbackEvent（scene 标签自动带同行人）。落 M2.5 |
+
+### 6.2 看到但明确不学的
+
+- **一键下单闭环**（飞猪/TripGenie 的核心）：这是 OTA 的库存优势，不是规划师的价值；我们保持"推荐 + 带上下文深链"（日期人数预填进跳转 URL），把"从决定到行动"的距离缩到最短但不越过交易线。
+- **对话式 LUI 为主界面**（TripGenie）：开放对话发散、偏好难沉淀，维持草案—批注为主、自由文本为辅。
+- **多智能体作为产品卖点**（问一问）：吸收其架构，拒绝其叙事——用户面对的是一个规划师，不是一支团队。
+
+### 6.3 对 schema 与路线图的修订
+
+- `TripBrief.budget = {tier: "mid", amount: 5000, currency: "CNY"}`（amount 可选）
+- `PlanCard` 增加 `costEstimate: {amount, currency, confidence}`、`swapHint: string|null`、`geo: {lat, lng, cluster}`
+- `FeedbackEvent.type` 增加 `companion-vote`
+- 路线图变更：M1 增加地理聚类约束、swapHint、预算 schema 与域 agent 管线；M2 增加 EvidencePack 与预算条 UI；新增 **M2.5 轻协作**（同行人批注 + ics 导出）；M3 增加地图视图与行中提醒轴。
+
+## 7. 风险与开放问题
 
 - **LLM 成本**：草案 1 次 + 批注增量的调用模式下，单次旅程规划估算 <¥1；行中轻量调用用低档模型。若用户量上来需要加缓存层（同目的地素材检索结果缓存 7 天）。
 - **高德 vs Google 的目的地覆盖分界**：建议以"目的地库人工维护清单"为准，库内城市标注首选 POI 源，不做自动路由。
