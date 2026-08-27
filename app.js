@@ -1,121 +1,141 @@
 (function () {
-  const activities = {
-    hiking: { label: "山径徒步", offset: 0, exposure: "高", fallback: "改为低海拔短线，或改期。" },
-    camping: { label: "露营过夜", offset: -8, exposure: "很高", fallback: "取消过夜，改为当日往返或室内住宿。" },
-    city: { label: "城市漫游", offset: 45, exposure: "中", fallback: "保留室内场馆和商场，把户外街区放到降雨间隙。" },
-    food: { label: "美食探店", offset: 55, exposure: "低", fallback: "优先地铁可达餐厅，减少排队和户外步行。" },
-    beach: { label: "海滩活动", offset: -5, exposure: "很高", fallback: "取消下水，改为有遮蔽的近岸短途活动。" }
-  };
-
   const els = {
-    form: document.querySelector("#trip-form"), activity: document.querySelector("#activity"),
+    origin: document.querySelector("#origin"), destination: document.querySelector("#destination"),
     start: document.querySelector("#start-date"), end: document.querySelector("#end-date"),
-    refresh: document.querySelector("#refresh-button"), connection: document.querySelector("#connection"),
+    chips: document.querySelector("#activity-chips"), planBtn: document.querySelector("#plan-button"),
+    connection: document.querySelector("#connection"), panel: document.querySelector("#result-panel"),
     score: document.querySelector("#score-value"), ring: document.querySelector("#score-ring"),
     activityLabel: document.querySelector("#activity-label"), title: document.querySelector("#verdict-title"),
     summary: document.querySelector("#verdict-summary"), badge: document.querySelector("#verdict-badge"),
-    days: document.querySelector("#weather-days"), risks: document.querySelector("#risk-list"),
-    advice: document.querySelector("#advice-list"), updated: document.querySelector("#updated-at")
+    days: document.querySelector("#weather-days"), itinerary: document.querySelector("#itinerary"),
+    flightNote: document.querySelector("#flight-note"), flightList: document.querySelector("#flight-list"),
+    transitList: document.querySelector("#transit-list"), risks: document.querySelector("#risk-list"),
+    packing: document.querySelector("#packing-list"), foodList: document.querySelector("#food-list"),
+    funList: document.querySelector("#fun-list"), openH5: document.querySelector("#open-h5"),
+    copyH5: document.querySelector("#copy-h5"), updated: document.querySelector("#updated-at"),
+    settingsBtn: document.querySelector("#settings-button"), dialog: document.querySelector("#settings-dialog"),
+    adapterSettings: document.querySelector("#adapter-settings"), saveSettings: document.querySelector("#save-settings")
   };
 
-  function isoLocal(date) {
-    const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return shifted.toISOString().slice(0, 10);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const isoLocal = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+  function init() {
+    els.origin.innerHTML = window.FlightAdapter.origins().map((c) => `<option>${esc(c)}</option>`).join("");
+    els.destination.innerHTML = window.Destinations.all().map((c) => `<option>${esc(c)}</option>`).join("");
+    els.destination.value = "香港";
+    els.chips.innerHTML = Object.entries(window.Planner.ACTIVITIES).map(([key, a]) =>
+      `<label class="chip"><input type="checkbox" name="activity" value="${key}" ${["city", "food"].includes(key) ? "checked" : ""}/><span>${esc(a.label)}</span></label>`).join("");
+    const start = new Date(); start.setDate(start.getDate() + 3);
+    const end = new Date(start); end.setDate(end.getDate() + 3);
+    els.start.value = isoLocal(start); els.end.value = isoLocal(end);
   }
 
-  function setDefaultDates() {
-    const start = new Date();
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    els.start.value = isoLocal(start);
-    els.end.value = isoLocal(end);
+  function selectedActivities() {
+    return Array.from(els.chips.querySelectorAll("input:checked")).map((i) => i.value);
   }
 
-  function tripInput() {
-    return { type: "outdoor", profile: { startDate: els.start.value, endDate: els.end.value } };
+  function classify(level) {
+    return { "no-go": { badge: "不建议", title: "不建议按原计划出行" }, caution: { badge: "谨慎", title: "可以去，但需要调整计划" }, go: { badge: "适合", title: "当前条件适合出行" }, unknown: { badge: "待复查", title: "日期超出可靠预报范围" } }[level];
   }
 
-  function classify(score, hardStop) {
-    if (hardStop || score < 40) return { key: "no-go", badge: "不建议", title: "不建议按原计划出行" };
-    if (score < 70) return { key: "caution", badge: "谨慎", title: "可以去，但需要调整计划" };
-    return { key: "go", badge: "适合", title: "当前条件适合出行" };
+  function fmtDate(iso) {
+    return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", weekday: "short" }).format(new Date(iso + "T12:00:00"));
   }
 
-  function formatDay(day) {
-    const raw = String(day.forecastDate || "");
-    const date = new Date(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T12:00:00`);
-    return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", weekday: "short" }).format(date);
-  }
-
-  function renderDays(weather) {
-    els.days.innerHTML = weather.days.length ? weather.days.map((day) => `
-      <article><time>${formatDay(day)}</time><strong>${day.forecastWeather || "官方预报"}</strong>
-      <span>${day.forecastMintemp?.value ?? "--"}°–${day.forecastMaxtemp?.value ?? "--"}°</span><small>${day.PSR ? `显著降雨概率：${day.PSR}` : "降雨概率暂无"}</small></article>`).join("") : "<article><strong>所选日期暂无逐日预报</strong><small>请在九日预报窗口内再次查询。</small></article>";
-  }
-
-  function renderRisks(weather) {
-    const signals = weather.signals.length ? weather.signals.slice(0, 4) : [{ label: "暂无突出天气风险", reason: "仍需在出发前复查最新警告", penalty: 0 }];
-    els.risks.innerHTML = signals.map((signal, index) => `<article><b>${String(index + 1).padStart(2, "0")}</b><div><strong>${signal.label}</strong><p>${signal.reason}</p></div><em>${signal.penalty ? `-${signal.penalty}` : "OK"}</em></article>`).join("");
-  }
-
-  function renderAdvice(weather, level, activity) {
-    const items = [activity.fallback];
-    if (level.key === "go") items.unshift("按原时间出行，但在出发前 3 小时复查天气警告。");
-    if (level.key === "caution") items.unshift("缩短户外时间，同时准备可即时切换的室内方案。");
-    if (level.key === "no-go") items.unshift("不要因为机票、酒店或已有安排而降低安全阈值。");
-    if (weather.warnings?.length) items.push("当前存在官方天气警告，以香港天文台最新消息为准。");
-    els.advice.innerHTML = items.slice(0, 3).map((item) => `<p><i>→</i><span>${item}</span></p>`).join("");
-  }
-
-  async function evaluate() {
-    if (!els.start.value || !els.end.value) return;
-    els.connection.className = "connection is-loading";
-    els.connection.querySelector("span").textContent = "读取 HKO 中";
-    els.title.textContent = "正在读取官方天气";
-    els.badge.textContent = "CALCULATING";
-
-    const weather = await window.HKOWeatherAdapter.load(tripInput());
-    const activity = activities[els.activity.value];
-    if (weather.score == null) {
-      els.score.textContent = "--";
-      els.ring.className = "score-ring";
-      els.activityLabel.textContent = `${activity.label}适配度`;
-      els.title.textContent = "日期还不在可靠预报范围内";
-      els.summary.textContent = "香港天文台九日预报尚未覆盖所选日期，现在不应给出虚假精确的适配度。";
-      els.badge.className = "verdict-badge";
-      els.badge.textContent = "待复查";
-      renderDays(weather);
-      els.risks.innerHTML = '<article><b>01</b><div><strong>预报范围不足</strong><p>请在出发前 9 天内重新评估。</p></div><em>--</em></article>';
-      els.advice.innerHTML = `<p><i>→</i><span>先保留可取消的交通与住宿安排，不提前锁定高风险户外行程。</span></p>`;
-      els.connection.className = `connection ${weather.mode === "live" ? "is-live" : ""}`;
-      els.connection.querySelector("span").textContent = weather.mode === "live" ? "HKO 实时数据" : "HKO 官方快照";
-      els.updated.textContent = "请在九日预报窗口内复查";
-      return;
-    }
-    const hardStop = weather.status === "no-go" && ["hiking", "camping", "beach"].includes(els.activity.value);
-    const score = Math.max(0, Math.min(100, weather.score + activity.offset));
-    const level = classify(score, hardStop);
-
-    els.score.textContent = score;
-    els.ring.className = `score-ring is-${level.key}`;
-    els.activityLabel.textContent = `${activity.label}适配度 · 暴露度${activity.exposure}`;
+  function render(plan) {
+    els.panel.hidden = false;
+    const level = classify(plan.fit.level);
+    els.score.textContent = plan.fit.score ?? "--";
+    els.ring.className = `score-ring is-${plan.fit.level}`;
+    els.activityLabel.textContent = `${plan.activities.map((a) => a.label).join(" + ")} · ${esc(plan.input.destination)}`;
     els.title.textContent = level.title;
-    els.summary.textContent = weather.summary || "已根据官方天气信息完成评估。";
-    els.badge.className = `verdict-badge is-${level.key}`;
+    els.summary.textContent = plan.weather.days.length
+      ? `预报覆盖 ${plan.weather.days.length} 天${plan.weather.mode === "partial" ? "（部分日期超出 16 天预报窗口）" : ""}，硬性风险信号 ${plan.fit.signals.filter((s) => s.hard).length} 个。`
+      : plan.weather.error ? `天气接口异常：${plan.weather.error}` : "所选日期超出可靠预报范围，先按行程规划，出发前 16 天内复查适配度。";
+    els.badge.className = `verdict-badge is-${plan.fit.level}`;
     els.badge.textContent = level.badge;
-    renderDays(weather);
-    renderRisks(weather);
-    renderAdvice(weather, level, activity);
 
-    els.connection.className = `connection ${weather.mode === "live" ? "is-live" : ""}`;
-    els.connection.querySelector("span").textContent = weather.mode === "live" ? "HKO 实时数据" : "HKO 官方快照";
-    els.updated.textContent = weather.updatedAt ? `更新：${new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Hong_Kong" }).format(new Date(weather.updatedAt))}` : "已完成评估";
+    els.days.innerHTML = plan.weather.days.length ? plan.weather.days.map((d) => `
+      <article><time>${fmtDate(d.date)}</time><strong>${esc(d.weatherText)}</strong>
+      <span>${d.tMin}°–${d.tMax}°</span><small>降雨概率 ${d.rainProb ?? "--"}% · 风 ${d.wind}km/h</small></article>`).join("")
+      : "<article><strong>所选日期暂无逐日预报</strong><small>请在出发前 16 天内复查。</small></article>";
+
+    els.itinerary.innerHTML = plan.itinerary.map((day) => `
+      <article class="day-card${day.rainy ? " is-rainy" : ""}">
+        <header><b>D${day.index}</b><span>${fmtDate(day.date)}</span>${day.weather ? `<em>${esc(day.weather.weatherText)} ${day.weather.tMin}°–${day.weather.tMax}°</em>` : ""}${day.rainy ? "<i>已切换室内优先</i>" : ""}</header>
+        ${day.slots.map((s) => `<p><strong>${esc(s.time)}</strong><span>${esc(s.title)}<small>${esc(s.note)}</small></span></p>`).join("")}
+      </article>`).join("");
+
+    els.flightNote.textContent = plan.flights.note || "";
+    els.flightNote.className = `source-note ${plan.flights.mode === "sample" ? "is-sample" : "is-live"}`;
+    els.flightList.innerHTML = plan.flights.flights.length ? plan.flights.flights.map((f) => `
+      <article><b>${esc(f.flightNo)}</b><div><strong>${esc(f.carrier)} · ${esc(f.from)} → ${esc(f.to)}</strong><p>${esc(f.dep)} — ${esc(f.arr)} · ${esc(f.duration)}</p></div><em>${esc(f.priceHint)}</em></article>`).join("")
+      : `<article><div><strong>${esc(plan.flights.note || "暂无航班数据")}</strong></div></article>`;
+
+    els.transitList.innerHTML = plan.transit.map((t) => `
+      <article><b>${esc(t.mode)}</b><div><strong>→ ${esc(t.to)} · ${esc(t.duration)}</strong><p>${esc(t.note)}</p></div><em>${esc(t.price)}</em></article>`).join("");
+
+    const signals = plan.fit.signals.length ? plan.fit.signals.slice(0, 5) : [{ label: "暂无突出天气风险", reason: "仍需出发前复查官方警告", penalty: 0 }];
+    els.risks.innerHTML = signals.map((s, i) => `<article><b>${String(i + 1).padStart(2, "0")}</b><div><strong>${esc(s.label)}${s.date ? ` · ${fmtDate(s.date)}` : ""}</strong><p>${esc(s.reason)}</p></div><em>${s.penalty ? `-${s.penalty}` : "OK"}</em></article>`).join("");
+
+    els.packing.innerHTML = plan.packing.map((p) => `<li>${esc(p)}</li>`).join("");
+    els.foodList.innerHTML = plan.food.map((f) => `<article><strong>${esc(f.name)}</strong><span>${esc(f.type)} · ${esc(f.area)}</span><p>${esc(f.note)}</p></article>`).join("");
+    els.funList.innerHTML = plan.fun.map((f) => `<article><strong>${esc(f.name)}</strong><span>${esc(f.type)} · ${esc(f.time)}</span><p>${esc(f.note)}</p></article>`).join("");
+
+    // H5 分享：计划写入 localStorage，同时编码进 URL hash，两条路径都能打开
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(plan))));
+    try { localStorage.setItem("travel-planner:last-plan", JSON.stringify(plan)); } catch (e) { /* ignore */ }
+    const h5Url = `h5.html#plan=${encoded}`;
+    els.openH5.href = h5Url;
+    els.copyH5.onclick = async () => {
+      const abs = new URL(h5Url, location.href).href;
+      try { await navigator.clipboard.writeText(abs); els.copyH5.textContent = "已复制 ✓"; }
+      catch (e) { prompt("复制以下链接：", abs); }
+      setTimeout(() => (els.copyH5.textContent = "复制分享链接"), 2000);
+    };
+    els.updated.textContent = `生成于 ${new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(plan.generatedAt))}`;
   }
 
-  els.refresh.addEventListener("click", evaluate);
-  els.activity.addEventListener("change", evaluate);
-  els.start.addEventListener("change", evaluate);
-  els.end.addEventListener("change", evaluate);
-  setDefaultDates();
-  evaluate();
+  async function run() {
+    if (!els.start.value || !els.end.value) return;
+    if (els.end.value < els.start.value) { alert("返程日期需晚于出发日期"); return; }
+    const activities = selectedActivities();
+    if (!activities.length) { alert("请至少选择一个出行类型"); return; }
+    els.connection.className = "connection is-loading";
+    els.connection.querySelector("span").textContent = "规划中";
+    els.planBtn.disabled = true;
+    try {
+      const plan = await window.Planner.plan({
+        origin: els.origin.value, destination: els.destination.value,
+        startDate: els.start.value, endDate: els.end.value, activities
+      });
+      render(plan);
+      els.connection.className = `connection ${plan.weather.mode !== "error" ? "is-live" : ""}`;
+      els.connection.querySelector("span").textContent = plan.weather.mode !== "error" ? "数据已更新" : "天气接口异常";
+    } catch (error) {
+      els.connection.className = "connection";
+      els.connection.querySelector("span").textContent = `失败：${error.message || error}`;
+    } finally {
+      els.planBtn.disabled = false;
+    }
+  }
+
+  function openSettings() {
+    els.adapterSettings.innerHTML = window.AdapterRegistry.list().map((a) => `
+      <label class="adapter-row">
+        <span>${esc(a.label)} <em class="tag is-${window.AdapterRegistry.status(a.id)}">${window.AdapterRegistry.status(a.id) === "live" ? "已接入" : "示例模式"}</em></span>
+        ${a.keyRequired ? `<input type="password" data-adapter="${a.id}" placeholder="粘贴 API Key（留空使用示例数据）" value="${esc(window.AdapterRegistry.getKey(a.id))}" />` : `<small>免 Key 公共接口，自动接入。文档：${esc(a.docs)}</small>`}
+      </label>`).join("");
+    els.dialog.showModal();
+  }
+
+  els.saveSettings.addEventListener("click", () => {
+    els.adapterSettings.querySelectorAll("input[data-adapter]").forEach((input) => {
+      window.AdapterRegistry.setKey(input.dataset.adapter, input.value.trim());
+    });
+  });
+  els.settingsBtn.addEventListener("click", openSettings);
+  els.planBtn.addEventListener("click", run);
+  init();
 })();

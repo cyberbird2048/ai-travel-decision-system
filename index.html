@@ -4,88 +4,126 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#17352b" />
-    <meta name="description" content="根据香港实时天气，判断指定日期和出行活动是否适合。" />
-    <title>出行适配度 · 天气决策</title>
+    <meta name="description" content="AI 旅行规划师：设计线路、匹配航班、落地交通、出行适配度、行李清单、美食娱乐，一键生成出行 H5。" />
+    <title>旅行规划师 · Travel Planner</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="#top">出行适配度 <span>WEATHER FIT</span></a>
-      <div class="connection" id="connection"><i></i><span>读取天气中</span></div>
+      <a class="brand" href="#top">旅行规划师 <span>TRIP PLANNER</span></a>
+      <div class="topbar-actions">
+        <button id="settings-button" type="button" class="ghost-button">接口设置</button>
+        <div class="connection" id="connection"><i></i><span>就绪</span></div>
+      </div>
     </header>
 
     <main id="top">
       <section class="query-panel" aria-labelledby="query-title">
         <div>
-          <p class="eyebrow">Before you go</p>
-          <h1 id="query-title">这个时间去做这件事，<br />合不合适？</h1>
+          <p class="eyebrow">Plan before you go</p>
+          <h1 id="query-title">告诉我你的出行需求，<br />我来把整趟旅程排好。</h1>
         </div>
         <form id="trip-form">
           <label>
+            <span>出发城市</span>
+            <select id="origin" name="origin"></select>
+          </label>
+          <label>
             <span>目的地</span>
-            <select id="destination" name="destination">
-              <option value="Hong Kong">香港</option>
-            </select>
+            <select id="destination" name="destination"></select>
           </label>
           <label>
-            <span>出行类型</span>
-            <select id="activity" name="activity">
-              <option value="hiking">山径徒步</option>
-              <option value="camping">露营过夜</option>
-              <option value="city">城市漫游</option>
-              <option value="food">美食探店</option>
-              <option value="beach">海滩活动</option>
-            </select>
-          </label>
-          <label>
-            <span>开始日期</span>
+            <span>出发日期</span>
             <input id="start-date" name="startDate" type="date" />
           </label>
           <label>
-            <span>结束日期</span>
+            <span>返程日期</span>
             <input id="end-date" name="endDate" type="date" />
           </label>
-          <button id="refresh-button" type="button">重新评估</button>
+          <fieldset class="activity-set">
+            <legend>想做什么（可多选）</legend>
+            <div id="activity-chips" class="chips"></div>
+          </fieldset>
+          <button id="plan-button" type="button">生成出行计划</button>
         </form>
       </section>
 
-      <section class="result-panel" aria-live="polite">
+      <section class="result-panel" id="result-panel" aria-live="polite" hidden>
         <div class="score-block">
-          <div class="score-ring" id="score-ring">
-            <strong id="score-value">--</strong><small>/100</small>
-          </div>
+          <div class="score-ring" id="score-ring"><strong id="score-value">--</strong><small>/100</small></div>
           <div class="score-copy">
-            <p id="activity-label">山径徒步适配度</p>
-            <h2 id="verdict-title">正在读取官方天气</h2>
-            <p id="verdict-summary">将结合降雨、雷暴、风力、高温和天气警告进行判断。</p>
+            <p id="activity-label">出行适配度</p>
+            <h2 id="verdict-title">等待生成计划</h2>
+            <p id="verdict-summary">将结合天气、活动暴露度与官方风险信号进行判断。</p>
           </div>
-          <span class="verdict-badge" id="verdict-badge">CALCULATING</span>
+          <span class="verdict-badge" id="verdict-badge">READY</span>
         </div>
 
         <div class="weather-days" id="weather-days"></div>
 
         <div class="decision-grid">
           <section>
-            <div class="section-title"><span>01</span><h3>关键风险</h3></div>
-            <div class="risk-list" id="risk-list"></div>
+            <div class="section-title"><span>01</span><h3>线路设计（逐日）</h3></div>
+            <div class="itinerary" id="itinerary"></div>
           </section>
           <section>
-            <div class="section-title"><span>02</span><h3>怎么调整</h3></div>
-            <div class="advice-list" id="advice-list"></div>
+            <div class="section-title"><span>02</span><h3>航班匹配</h3></div>
+            <p class="source-note" id="flight-note"></p>
+            <div class="flight-list" id="flight-list"></div>
+            <div class="section-title"><span>03</span><h3>落地交通</h3></div>
+            <div class="transit-list" id="transit-list"></div>
           </section>
+          <section>
+            <div class="section-title"><span>04</span><h3>关键风险</h3></div>
+            <div class="risk-list" id="risk-list"></div>
+            <div class="section-title"><span>05</span><h3>携带物品清单</h3></div>
+            <ul class="packing-list" id="packing-list"></ul>
+          </section>
+          <section>
+            <div class="section-title"><span>06</span><h3>美食推荐</h3></div>
+            <div class="poi-list" id="food-list"></div>
+            <div class="section-title"><span>07</span><h3>娱乐与体验</h3></div>
+            <div class="poi-list" id="fun-list"></div>
+          </section>
+        </div>
+
+        <div class="h5-cta">
+          <div>
+            <strong>动态出行 H5</strong>
+            <p>把这份计划生成一个手机友好的行程页：打开时自动刷新天气与倒计时，可直接分享链接。</p>
+          </div>
+          <div class="h5-actions">
+            <a id="open-h5" class="primary-link" href="#" target="_blank" rel="noreferrer">打开出行 H5 ↗</a>
+            <button id="copy-h5" type="button" class="ghost-button">复制分享链接</button>
+          </div>
         </div>
       </section>
 
       <section class="rule-note">
         <strong>判断原则</strong>
-        <p>官方警告与安全阈值优先于行程沉没成本。结果用于辅助决策，出发前仍需复查现场状况。</p>
-        <a href="https://www.hko.gov.hk/" target="_blank" rel="noreferrer">查看香港天文台 ↗</a>
+        <p>官方警告与安全阈值优先于行程沉没成本。示例数据会明确标注；接入实时接口后自动切换。出发前仍需复查官方最新通知。</p>
       </section>
     </main>
 
-    <footer><span>数据源：香港天文台开放数据</span><span id="updated-at">尚未更新</span></footer>
+    <dialog id="settings-dialog">
+      <form method="dialog" class="settings-form">
+        <h3>接口接入设置</h3>
+        <p>按需接入外部接口。未配置的接口自动使用内置示例数据或免 Key 公共数据。Key 只保存在你的浏览器本地。</p>
+        <div id="adapter-settings"></div>
+        <div class="settings-actions">
+          <button value="save" id="save-settings">保存</button>
+          <button value="cancel" class="ghost-button">取消</button>
+        </div>
+      </form>
+    </dialog>
 
-    <script src="adapters/hko-weather.js"></script>
+    <footer><span>数据源：Open-Meteo · 内置目的地知识库 · 可选实时航班接口</span><span id="updated-at">尚未生成</span></footer>
+
+    <script src="adapters/registry.js"></script>
+    <script src="adapters/destinations.js"></script>
+    <script src="adapters/weather.js"></script>
+    <script src="adapters/flights.js"></script>
+    <script src="engine/planner.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

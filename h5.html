@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#17352b" />
+    <meta name="description" content="动态出行 H5：行程、航班、落地交通、实时天气、行李清单与美食娱乐。" />
+    <title>出行 H5 · Trip</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="h5.css" />
+  </head>
+  <body class="h5-body">
+    <div id="h5-empty" class="h5-empty" hidden>
+      <h1>还没有出行计划</h1>
+      <p>请先在 <a href="index.html">旅行规划师</a> 生成计划，再打开出行 H5。</p>
+    </div>
+
+    <div id="h5-app" hidden>
+      <header class="h5-hero">
+        <p class="eyebrow" id="h5-route">— → —</p>
+        <h1 id="h5-title">出行计划</h1>
+        <p id="h5-dates">--</p>
+        <div class="h5-countdown" id="h5-countdown"></div>
+        <div class="h5-fit" id="h5-fit"></div>
+      </header>
+
+      <nav class="h5-tabs" id="h5-tabs">
+        <button data-tab="itinerary" class="is-active">行程</button>
+        <button data-tab="flight">航班·交通</button>
+        <button data-tab="weather">天气</button>
+        <button data-tab="packing">清单</button>
+        <button data-tab="poi">吃喝玩乐</button>
+      </nav>
+
+      <main class="h5-main">
+        <section data-panel="itinerary" class="is-active" id="h5-itinerary"></section>
+        <section data-panel="flight" id="h5-flight"></section>
+        <section data-panel="weather" id="h5-weather"></section>
+        <section data-panel="packing" id="h5-packing"></section>
+        <section data-panel="poi" id="h5-poi"></section>
+      </main>
+
+      <footer class="h5-footer">
+        <span id="h5-generated">--</span>
+        <span id="h5-live">天气实时刷新中…</span>
+      </footer>
+    </div>
+
+    <script src="adapters/registry.js"></script>
+    <script src="adapters/destinations.js"></script>
+    <script src="adapters/weather.js"></script>
+    <script src="engine/planner.js"></script>
+    <script src="h5.js"></script>
+  </body>
+</html>

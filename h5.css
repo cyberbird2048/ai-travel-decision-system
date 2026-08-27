@@ -1,0 +1,59 @@
+/* 动态出行 H5：移动优先 */
+.h5-body { background: var(--paper); }
+.h5-body main, .h5-body footer { width: auto; margin: 0; }
+
+.h5-empty { display: grid; place-content: center; gap: 10px; min-height: 70vh; padding: 24px; text-align: center; }
+.h5-empty a { color: var(--green); font-weight: 700; }
+
+.h5-hero { padding: 46px 20px 26px; color: #fff; background: linear-gradient(160deg, #17352b, #26584a); }
+.h5-hero .eyebrow { color: #9db7ab; }
+.h5-hero h1 { margin-bottom: 8px; font-size: clamp(32px, 8vw, 44px); }
+.h5-hero > p:not(.eyebrow) { margin: 0; color: #bdcbc5; font-size: 13px; }
+.h5-countdown { margin-top: 18px; font-size: 14px; color: #dff0e8; }
+.h5-countdown b { font-family: "Songti SC", serif; font-size: 26px; margin: 0 2px; }
+.h5-fit { display: inline-block; margin-top: 14px; padding: 8px 14px; border-radius: 999px; font-size: 13px; background: rgba(255,255,255,.12); }
+.h5-fit b { font-size: 18px; }
+.h5-fit.is-go { background: rgba(100,189,146,.25); }
+.h5-fit.is-caution { background: rgba(214,158,80,.3); }
+.h5-fit.is-no-go { background: rgba(217,106,93,.35); }
+
+.h5-tabs { position: sticky; top: 0; z-index: 5; display: flex; overflow-x: auto; background: #fff; border-bottom: 1px solid var(--line); }
+.h5-tabs button { flex: 1 0 auto; padding: 14px 16px; border: 0; border-bottom: 2px solid transparent; color: var(--muted); font-size: 14px; background: transparent; cursor: pointer; white-space: nowrap; }
+.h5-tabs button.is-active { color: var(--green); border-bottom-color: var(--green); font-weight: 700; }
+
+.h5-main { max-width: 720px; margin: 0 auto; padding: 18px 16px 40px; }
+.h5-main > section { display: none; }
+.h5-main > section.is-active { display: block; }
+
+.h5-day { margin-bottom: 14px; padding: 15px 16px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.h5-day.is-today { border-color: var(--green); box-shadow: 0 0 0 3px rgba(38,112,82,.1); }
+.h5-day.is-rainy { border-left: 4px solid var(--amber); }
+.h5-day header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding-bottom: 9px; border-bottom: 1px dashed var(--line); }
+.h5-day header b { color: var(--green); }
+.h5-day header em { color: var(--muted); font-size: 12px; font-style: normal; }
+.h5-day header i { margin-left: auto; padding: 2px 9px; border-radius: 999px; color: #fff; font-size: 11px; font-style: normal; background: var(--green); }
+.h5-day.is-rainy header i { background: var(--amber); }
+.h5-day p { display: grid; grid-template-columns: 48px 1fr; gap: 10px; margin: 0; padding: 9px 0; border-bottom: 1px solid #f0efe8; font-size: 14px; }
+.h5-day p:last-child { border-bottom: 0; }
+.h5-day p strong { color: var(--muted); font-size: 11px; padding-top: 2px; }
+.h5-day p small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+.h5-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; padding: 13px 14px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.h5-row b { color: var(--green); font-size: 12px; }
+.h5-row strong { display: block; font-size: 14px; }
+.h5-row p { margin: 3px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.h5-row em { color: var(--ink); font-size: 12px; font-style: normal; font-weight: 700; text-align: right; }
+.h5-subtitle { margin: 22px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--ink); font-size: 16px; }
+
+.h5-main .weather-days { margin-top: 12px; grid-template-columns: 1fr; }
+.h5-main .source-note { margin-bottom: 12px; }
+
+.h5-checklist { margin: 12px 0 0; padding: 0; list-style: none; }
+.h5-checklist li { border-bottom: 1px solid var(--line); background: #fff; }
+.h5-checklist li:first-child { border-radius: 8px 8px 0 0; }
+.h5-checklist li:last-child { border-radius: 0 0 8px 8px; border-bottom: 0; }
+.h5-checklist label { display: flex; align-items: center; gap: 12px; padding: 13px 15px; font-size: 14px; cursor: pointer; }
+.h5-checklist input { width: 18px; height: 18px; accent-color: var(--green); }
+.h5-checklist input:checked + span { color: var(--muted); text-decoration: line-through; }
+
+.h5-footer { display: grid; gap: 4px; padding: 18px 16px 34px; color: var(--muted); font-size: 11px; text-align: center; }
