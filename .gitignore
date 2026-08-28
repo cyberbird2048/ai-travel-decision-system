@@ -6,3 +6,6 @@
 node_modules/
 .DS_Store
 *.log
+
+# 构建产物
+dist/

@@ -58,6 +58,17 @@ python3 -m http.server 8080
 
 其余数据（目的地知识库、示例航班、落地交通）全部内置，不依赖任何外部服务。
 
+### 不想起服务器？两种零配置方式
+
+1. **直接双击 `index.html`** —— 大部分功能可用（线路、航班示例、落地交通、清单、美食娱乐、H5）。浏览器对 `file://` 的跨域限制会挡掉天气接口，此时适配度显示"日期超出可靠预报范围"。
+2. **打包成单文件** —— 规划台与出行 H5 合并为一个 HTML，双击即用，也方便分享：
+
+```bash
+node tools/build-standalone.mjs   # 生成 dist/travel-planner.html
+```
+
+需要真实天气与适配度分数时，用上面的 `python3 -m http.server` 方式启动。
+
 **M1 之后**（见 `docs/codex-handoff.md`）会新增 `gateway/server.mjs` 本地网关承载 LLM 与 MCP 调用，届时启动方式变为两条命令（网关 + 静态服务），网关不可用时前端自动降级回当前 M0 行为。
 
 ## 判断边界
