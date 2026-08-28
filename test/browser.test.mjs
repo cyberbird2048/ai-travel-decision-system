@@ -2,11 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { chromium } from "playwright";
+
+// Browser coverage is optional: M1 itself has no npm dependency. Keep the
+// full `node --test test/` command useful on a fresh checkout by skipping this
+// integration test when Playwright has not been installed locally.
+let chromium;
+try {
+  ({ chromium } = await import("playwright"));
+} catch (_) {
+  chromium = null;
+}
 
 const chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
-test("M1 页面离线生成、锁定与局部替换", { skip: !existsSync(chrome), timeout: 30000 }, async () => {
+test("M1 页面离线生成、锁定与局部替换", { skip: !existsSync(chrome) || !chromium, timeout: 30000 }, async () => {
   const staticServer = spawn("python3", ["-m", "http.server", "8099", "--bind", "127.0.0.1"], { stdio: "ignore" });
   const browser = await chromium.launch({ executablePath: chrome, headless: true });
   try {
