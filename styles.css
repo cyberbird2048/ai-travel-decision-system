@@ -17,8 +17,8 @@ body {
   font-family: "Avenir Next", "PingFang SC", sans-serif;
   background: var(--paper);
 }
-button, input, select { font: inherit; }
-button, select, input { color: inherit; }
+button, input, select, textarea { font: inherit; }
+button, select, input, textarea { color: inherit; }
 a { color: inherit; }
 p, h1, h2, h3 { margin-top: 0; }
 
@@ -50,7 +50,7 @@ main, footer { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
 h1 { margin-bottom: 0; font-family: "Songti SC", "STSong", serif; font-size: clamp(38px, 5vw, 64px); font-weight: 600; line-height: 1.16; }
 form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; }
-select, input {
+select, input, textarea {
   width: 100%;
   height: 48px;
   padding: 0 13px;
@@ -59,6 +59,8 @@ select, input {
   background: #fff;
   outline: none;
 }
+textarea { min-height: 78px; padding: 12px 13px; resize: vertical; }
+.free-text-field { grid-column: 1 / -1; }
 select:focus, input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(38,112,82,.08); }
 form button {
   grid-column: 1 / -1;
@@ -74,6 +76,26 @@ form button {
 form button:hover { background: var(--green); }
 
 .result-panel { padding: 46px 0 60px; }
+.planning-mode { margin-bottom: 14px; padding: 10px 14px; border-left: 3px solid var(--green); background: #fff; font-size: 13px; }
+.planning-mode.is-offline { border-color: var(--amber); color: var(--amber); }
+.budget-bar { margin-bottom: 28px; padding: 16px 18px; border: 1px solid var(--line); background: #fff; font-weight: 700; }
+.budget-bar.is-over { border-color: var(--red); color: var(--red); }
+.card-workspace { margin-bottom: 42px; }
+.plan-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.plan-card { padding: 16px; border: 1px solid var(--line); background: #fff; }
+.plan-card.is-locked { border-color: var(--green); box-shadow: inset 4px 0 var(--green); }
+.plan-card.is-replaced, .plan-card.is-rejected { display: none; }
+.plan-card header { display: flex; justify-content: space-between; gap: 12px; }
+.plan-card header span { color: var(--green); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.plan-card h4 { margin: 10px 0 6px; }
+.plan-card p { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.plan-card small { display: block; color: var(--muted); }
+.card-actions { display: flex; gap: 7px; margin-top: 12px; }
+.card-actions button { width: 36px; height: 34px; border: 1px solid var(--line); border-radius: 4px; background: transparent; cursor: pointer; }
+.card-actions button:hover { border-color: var(--green); }
+.swap-box { display: flex; gap: 7px; margin-top: 9px; }
+.swap-box input { height: 38px; }
+.swap-box button { padding: 0 12px; border: 0; color: #fff; background: var(--ink); }
 .score-block { display: grid; grid-template-columns: 158px 1fr auto; gap: 32px; align-items: center; }
 .score-ring {
   position: relative;
@@ -232,4 +254,5 @@ dialog::backdrop { background: rgba(24,52,43,.45); }
 @media (max-width: 800px) {
   .packing-list { columns: 1; }
   .h5-cta { padding: 20px; }
+  .plan-cards { grid-template-columns: 1fr; }
 }

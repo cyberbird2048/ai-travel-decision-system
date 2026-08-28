@@ -24,6 +24,10 @@
           <h1 id="query-title">告诉我你的出行需求，<br />我来把整趟旅程排好。</h1>
         </div>
         <form id="trip-form">
+          <label class="free-text-field">
+            <span>一句话说需求</span>
+            <textarea id="free-text" rows="3" placeholder="例：带爸妈去东京，节奏慢，想吃好的，预算 8000"></textarea>
+          </label>
           <label>
             <span>出发城市</span>
             <select id="origin" name="origin"></select>
@@ -40,6 +44,8 @@
             <span>返程日期</span>
             <input id="end-date" name="endDate" type="date" />
           </label>
+          <label><span>预算（CNY，可选）</span><input id="budget" type="number" min="0" step="100" placeholder="8000" /></label>
+          <label><span>节奏（1 特种兵 — 5 松弛）</span><input id="pace" type="range" min="1" max="5" value="3" /></label>
           <fieldset class="activity-set">
             <legend>想做什么（可多选）</legend>
             <div id="activity-chips" class="chips"></div>
@@ -49,6 +55,13 @@
       </section>
 
       <section class="result-panel" id="result-panel" aria-live="polite" hidden>
+        <div class="planning-mode" id="planning-mode"></div>
+        <div class="budget-bar" id="budget-bar"></div>
+        <section class="card-workspace">
+          <div class="section-title"><span>M1</span><h3>草案·批注循环</h3></div>
+          <p class="source-note">每个领域含推荐与备选；✓ 锁定、⟳ 按条件替换、✕ 否决。</p>
+          <div id="plan-cards" class="plan-cards"></div>
+        </section>
         <div class="score-block">
           <div class="score-ring" id="score-ring"><strong id="score-value">--</strong><small>/100</small></div>
           <div class="score-copy">
@@ -124,6 +137,9 @@
     <script src="adapters/weather.js"></script>
     <script src="adapters/flights.js"></script>
     <script src="engine/planner.js"></script>
+    <script src="engine/store.js"></script>
+    <script src="adapters/amap-mcp.js"></script>
+    <script src="engine/pipeline.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
