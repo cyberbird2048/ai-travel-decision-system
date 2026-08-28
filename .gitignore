@@ -1,0 +1,8 @@
+# 密钥：只允许 .env.example 进仓库
+.env
+.env.local
+.env.*.local
+
+node_modules/
+.DS_Store
+*.log

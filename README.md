@@ -23,7 +23,11 @@ adapters/weather.js        天气：Open-Meteo（全球免 Key，16 天预报）
 adapters/flights.js        航班：示例库兜底 + 可选 AviationStack 实时接口
 adapters/destinations.js   目的地知识库：机场、落地交通、美食、娱乐
 adapters/hko-weather.js    保留的 HKO 适配器（香港官方警告）
+docs/planner-design.md     规划层设计蓝图（交互、接口选型、偏好学习、路线图）
+docs/codex-handoff.md      执行交接单（M1 任务拆解、接口契约、验收清单）
 ```
+
+> **接手开发前先读 `docs/codex-handoff.md`**：当前代码是 M0 骨架，M1 的技术栈约束、文件结构、接口签名与 Definition of Done 全在交接单里；设计意图与取舍理由见 `docs/planner-design.md`。两份文档冲突时以交接单为准。
 
 **按需接入接口**：点击右上角"接口设置"，粘贴对应服务的 API Key 即从示例模式切换到实时模式；不配置也能完整跑通规划流程，但示例数据会明确标注"仅为量级参考"。
 
