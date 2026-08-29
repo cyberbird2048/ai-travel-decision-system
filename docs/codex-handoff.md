@@ -88,3 +88,35 @@ TripBrief / PlanCard / FeedbackEvent 的字段以设计文档 4.5 + 6.3 增补�
 - 不引入框架/打包器/数据库/账号体系
 - 不接任何需要用户账号登录的爬虫型数据源
 - 不改 `docs/` 下两份文档（发现设计矛盾 → PR 描述中提出，不自行改设计）
+
+---
+
+## 附录 A：C1 裁决 —— 高德改用 MCP（2026-08-29）
+
+针对 PR #2 审核项 C1，规划方裁决：**采用 MCP，不用 REST。这是永久决定，非临时替代。**
+
+理由：设计文档 §7 整章的立论是"消费品牌官方 Agent 工具"——它同时决定了海外侧走 Google Maps MCP、以及 M3 接 Amadeus/12306 的方式。此处退回自建 REST 适配器会让这条架构主线失效，后续每个域都要重新论证一次。
+
+### A.1 接入规格
+
+| 项 | 规格 |
+|---|---|
+| 端点 | `https://mcp.amap.com/sse?key=${AMAP_API_KEY}` |
+| 凭据 | **复用现有 `AMAP_API_KEY`**，无需新增环境变量 |
+| 传输 | SSE（HTTP+SSE transport） |
+| 依赖 | 允许引入 `@modelcontextprotocol/sdk`（官方 SDK，符合交接单 §1"零依赖或仅官方 SDK"）。**必须锁定确切版本**；仅网关可用，前端保持零依赖 |
+
+### A.2 实现约束
+
+1. **对前端的 HTTP 契约不变**：`POST /api/amap {tool, args}` → `{result, fetchedAt}` 保持原样，`adapters/amap-mcp.js` 不应因此改动。MCP 只替换网关内部的实现。
+2. **删除 REST 分支**。高德只保留两种状态：MCP 可用（live）/ 不可用（降级到内置目的地知识库并标注来源）。不要维护三条并行路径——两条已测通的状态比三条半测的更可靠。
+3. **工具名靠发现，不靠硬编码**：连接后调 `tools/list`，在启动日志打印一次发现到的工具清单，再做 `{geocode, poi-search, walking}` → MCP 工具名的映射。MCP 侧工具名变更时应表现为明确报错，而不是静默传错参数。
+4. **连接生命周期**：首次 `/api/amap` 调用时惰性连接并复用会话；失败时有界重试后降级。**启动不得依赖网络**——`node gateway/server.mjs` 在断网时必须能正常启动并让 `/api/health` 返回 `amap:false`。
+5. **密钥在 URL 查询串里，风险高于 header**：绝不打印完整端点 URL、绝不把含 key 的 URL 放进任何返回给前端的错误信息。日志里一律脱敏为 `https://mcp.amap.com/sse?key=***`。
+
+### A.3 验收证据（因规划方沙箱无法访问 mcp.amap.com，必须由执行方提供）
+
+1. `tools/list` 的实际返回（**key 脱敏后**）——证明连接成功且工具名映射有据；
+2. 一次真实 POI 检索的完整往返（请求参数 + 返回摘要）；
+3. 断网启动验证：无网络时网关正常启动、`/api/health` 返回 `amap:false`、前端降级到知识库并标注"知识库数据"；
+4. 确认前端 `adapters/amap-mcp.js` 未因本次改动而修改（或说明为何必须改）。
