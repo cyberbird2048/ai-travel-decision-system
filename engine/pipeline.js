@@ -6,7 +6,7 @@
   function setDependencies(value) { injected = value || {}; }
   function uid(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
   function amountFrom(text) {
-    const match = String(text || "").match(/(?:预算|budget)\s*[^数字]*(\d[\d,]*)/i);
+    const match = String(text || "").match(/(?:预算|budget)\s*[^0-9]*(\d[\d,]*)/i);
     return match ? Number(match[1].replace(/,/g, "")) : null;
   }
 
@@ -123,8 +123,8 @@
     if (old.state === "locked") throw new Error("锁定卡片不可替换");
     let replacement;
     const alternative = planState.cards.find((item) => old.alternatives.includes(item.id) && !["rejected", "replaced"].includes(item.state));
-    if (alternative) replacement = { ...alternative, id: uid(`${old.domain}-swap`) };
-    else replacement = { ...old, id: uid(`${old.domain}-swap`) };
+    if (!alternative) throw new Error("该域已无更多候选");
+    replacement = { ...alternative, id: uid(`${old.domain}-swap`) };
     replacement.state = "proposed"; replacement.swapHint = swapHint || null;
     replacement.reason = { ...replacement.reason, text: swapHint ? `已按“${swapHint}”重排；${replacement.reason.text}` : `已替换备选；${replacement.reason.text}` };
     if (planState.meta.mode === "online") {
@@ -141,7 +141,7 @@
     return { card: replacement, replacedId: cardId };
   }
 
-  const api = { plan, swapCard, setDependencies, offlineBrief, validateClusters };
+  const api = { plan, swapCard, setDependencies, offlineBrief, amountFrom, validateClusters };
   root.PlannerPipeline = api;
   if (typeof module !== "undefined") module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

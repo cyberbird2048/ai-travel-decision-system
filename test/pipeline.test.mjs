@@ -50,6 +50,13 @@ test("gateway 不可用时生成完整离线草案", async () => {
   assert.ok(result.cards.every((card) => Object.hasOwn(card, "costEstimate") && Object.hasOwn(card, "swapHint") && Object.hasOwn(card, "geo")));
 });
 
+test("预算文本解析覆盖常见中文与英文写法", () => {
+  assert.equal(pipeline.amountFrom("带爸妈去东京，预算 8000"), 8000);
+  assert.equal(pipeline.amountFrom("预算8000"), 8000);
+  assert.equal(pipeline.amountFrom("预算：12,000元"), 12000);
+  assert.equal(pipeline.amountFrom("budget 5000"), 5000);
+});
+
 test("swapHint 仅替换目标卡片并写入理由", async () => {
   const result = await pipeline.plan(input());
   const flight = result.cards.find((card) => card.domain === "flight");
@@ -65,6 +72,13 @@ test("锁定卡片不可 swap", async () => {
   const result = await pipeline.plan(input());
   const flight = result.cards.find((card) => card.domain === "flight"); flight.state = "locked";
   await assert.rejects(() => pipeline.swapCard(result, flight.id, null), /锁定/);
+});
+
+test("候选耗尽时明确提示，不克隆原卡", async () => {
+  const result = await pipeline.plan(input());
+  const flight = result.cards.find((card) => card.domain === "flight");
+  const first = await pipeline.swapCard(result, flight.id, null);
+  await assert.rejects(() => pipeline.swapCard(result, first.card.id, null), /无更多候选/);
 });
 
 test("同日 slot 使用同一 geo.cluster", async () => {

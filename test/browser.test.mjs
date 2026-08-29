@@ -13,11 +13,11 @@ try {
   chromium = null;
 }
 
-const chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const chrome = process.env.CHROME_PATH || undefined;
 
-test("M1 页面离线生成、锁定与局部替换", { skip: !existsSync(chrome) || !chromium, timeout: 30000 }, async () => {
+test("M1 页面离线生成、锁定与局部替换", { skip: !chromium || (chrome && !existsSync(chrome)), timeout: 30000 }, async () => {
   const staticServer = spawn("python3", ["-m", "http.server", "8099", "--bind", "127.0.0.1"], { stdio: "ignore" });
-  const browser = await chromium.launch({ executablePath: chrome, headless: true });
+  const browser = await chromium.launch({ ...(chrome ? { executablePath: chrome } : {}), headless: true });
   try {
     const page = await browser.newPage();
     await page.route("**/*open-meteo.com/**", async (route) => {

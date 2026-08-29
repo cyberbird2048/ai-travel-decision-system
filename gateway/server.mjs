@@ -2,23 +2,31 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.GATEWAY_PORT || 8787);
 const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
 const amapKey = process.env.AMAP_API_KEY || "";
+const allowedOrigins = new Set(["http://localhost:8080", "http://127.0.0.1:8080"]);
+let amapSession = null;
 
-function send(res, status, body) {
+function send(res, status, body, origin = "") {
   res.writeHead(status, {
-    "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*",
+    "content-type": "application/json; charset=utf-8", "access-control-allow-origin": allowedOrigins.has(origin) ? origin : "http://localhost:8080",
     "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET,POST,OPTIONS"
   });
   res.end(JSON.stringify(body));
 }
 
 async function body(req) {
-  const chunks = []; for await (const chunk of req) chunks.push(chunk);
-  if (Buffer.concat(chunks).length > 1_000_000) throw new Error("请求过大");
+  const chunks = []; let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > 1_000_000) throw Object.assign(new Error("请求过大"), { status: 413 });
+    chunks.push(chunk);
+  }
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 
@@ -67,34 +75,59 @@ async function llm(templateName, variables) {
   throw Object.assign(new Error(error), { status: 422 });
 }
 
-async function amap(tool, args) {
-  if (!amapKey) throw Object.assign(new Error("AMAP_API_KEY 未配置"), { status: 503 });
-  const routes = {
-    geocode: ["/v3/geocode/geo", { address: args.address, city: args.city }],
-    "poi-search": ["/v5/place/text", { keywords: args.keywords, region: args.region, page_size: Math.min(args.page_size || 10, 20) }],
-    walking: ["/v5/direction/walking", { origin: args.origin, destination: args.destination }]
+function toolFor(tools, kind) {
+  const rules = {
+    geocode: /geo.?code|geocod/i,
+    "poi-search": /poi|place|search/i,
+    walking: /walk|direction|route/i
   };
-  if (!routes[tool]) throw Object.assign(new Error("不支持的高德工具"), { status: 400 });
-  const [pathname, params] = routes[tool];
-  const url = new URL(pathname, "https://restapi.amap.com"); url.searchParams.set("key", amapKey);
-  Object.entries(params).forEach(([key, value]) => value != null && url.searchParams.set(key, String(value)));
-  const response = await fetch(url); const result = await response.json();
-  if (!response.ok || result.status === "0") throw Object.assign(new Error(result.info || `AMAP ${response.status}`), { status: 502 });
-  return result;
+  const match = tools.find((item) => rules[kind].test(`${item.name} ${item.description || ""}`));
+  if (!match) throw Object.assign(new Error(`高德 MCP 未发现 ${kind} 工具`), { status: 503 });
+  return match.name;
+}
+
+async function connectAmap() {
+  if (!amapKey) throw Object.assign(new Error("AMAP_API_KEY 未配置"), { status: 503 });
+  if (amapSession) return amapSession;
+  const endpoint = new URL("https://mcp.amap.com/sse"); endpoint.searchParams.set("key", amapKey);
+  const client = new Client({ name: "travel-planner-gateway", version: "1.0.0" });
+  const transport = new SSEClientTransport(endpoint);
+  try {
+    await client.connect(transport, { timeout: 8000 });
+    const listed = await client.listTools({});
+    const tools = listed.tools || [];
+    const mapping = { geocode: toolFor(tools, "geocode"), "poi-search": toolFor(tools, "poi-search"), walking: toolFor(tools, "walking") };
+    console.log(`AMAP MCP connected: ${tools.map((item) => item.name).join(", ")}`);
+    amapSession = { client, transport, mapping };
+    return amapSession;
+  } catch (error) {
+    await transport.close().catch(() => {});
+    console.error(`AMAP MCP connection failed: ${error.name || "Error"}`);
+    throw Object.assign(new Error("高德 MCP 连接失败"), { status: 503 });
+  }
+}
+
+async function amap(tool, args) {
+  if (!Object.hasOwn({ geocode: true, "poi-search": true, walking: true }, tool)) throw Object.assign(new Error("不支持的高德工具"), { status: 400 });
+  const session = await connectAmap();
+  return session.client.callTool({ name: session.mapping[tool], arguments: args });
 }
 
 const server = http.createServer(async (req, res) => {
-  if (req.method === "OPTIONS") return send(res, 204, {});
+  const origin = req.headers.origin || "";
+  if (origin && !allowedOrigins.has(origin)) return send(res, 403, { error: "origin not allowed" }, origin);
+  if (req.method === "OPTIONS") return send(res, 204, {}, origin);
+  if (req.method === "POST" && !/^application\/json(?:\s*;|$)/i.test(req.headers["content-type"] || "")) return send(res, 415, { error: "content-type must be application/json" }, origin);
   try {
-    if (req.method === "GET" && req.url === "/api/health") return send(res, 200, { llm: Boolean(anthropicKey), amap: Boolean(amapKey) });
+    if (req.method === "GET" && req.url === "/api/health") return send(res, 200, { llm: Boolean(anthropicKey), amap: Boolean(amapSession) });
     if (req.method === "POST" && req.url === "/api/llm") {
-      const value = await body(req); return send(res, 200, { json: await llm(value.template, value.variables || {}) });
+      const value = await body(req); return send(res, 200, { json: await llm(value.template, value.variables || {}) }, origin);
     }
     if (req.method === "POST" && req.url === "/api/amap") {
-      const value = await body(req); return send(res, 200, { result: await amap(value.tool, value.args || {}), fetchedAt: new Date().toISOString() });
+      const value = await body(req); return send(res, 200, { result: await amap(value.tool, value.args || {}), fetchedAt: new Date().toISOString() }, origin);
     }
-    return send(res, 404, { error: "not found" });
-  } catch (error) { return send(res, error.status || 500, { error: error.message }); }
+    return send(res, 404, { error: "not found" }, origin);
+  } catch (error) { return send(res, error.status || 500, { error: error.message }, origin); }
 });
 
 server.listen(port, "127.0.0.1", () => console.log(`Travel Planner gateway: http://127.0.0.1:${port}`));
