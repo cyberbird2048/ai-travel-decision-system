@@ -1,6 +1,6 @@
 # M1 回收审核单（PR #2 · codex/m1-planner）
 
-审核方：规划方 | 审核依据：`docs/codex-handoff.md` 第 6 节 | 结论：**有条件通过，须修复 2 项阻断问题后合并**
+审核方：规划方 | 审核依据：`docs/codex-handoff.md` 第 6 节 | 结论：**有条件通过，须修复 3 项阻断问题后合并**（B1、B2、S1）
 
 核验方式：本地静态服务 + 真实浏览器端到端操作（无网关 = 降级路径）、网关独立启动探测、`node --test test/`、逐文件代码审查。
 
@@ -82,8 +82,52 @@
 
 ## 四、安全与工程小项
 
-- **S1（应修）**：`access-control-allow-origin: *` + 网关持有 Anthropic Key。开着网关时访问的任意网页都能 `POST http://127.0.0.1:8787/api/llm` 消耗额度。实测 `Origin: https://evil.example` 仍返回 `*`。建议校验 Origin，仅放行 `http://localhost:8080` / `127.0.0.1` 来源。
-- **S2（低危）**：`body()` 先把整个请求读进内存再判 1MB 上限，限制形同虚设。改为累加时提前中断。
+### S1（必修，已升级为阻断级）本机任意网页可驱动网关消耗 API 额度
+
+**根因**：`access-control-allow-origin: *`，且网关**完全不校验请求 `Content-Type`**。
+
+**实测证据**（假 Key 网关，模拟恶意网页）：
+
+```bash
+curl -X POST http://127.0.0.1:8790/api/llm \
+     -H 'Origin: https://evil.example' \
+     -H 'Content-Type: text/plain' \
+     -d '{"template":"parse-brief","variables":{...}}'
+→ {"error":"Anthropic 401"}
+```
+
+`Anthropic 401` 是决定性的：请求穿过 `body()`（`JSON.parse` 对 `text/plain` 内容照样成功）、穿过路由、进入 `llm()`，并**真的向 api.anthropic.com 发出了一次调用**——只是假 Key 被拒。真 Key 即为真实扣费。
+
+**为什么"只加 Origin 白名单"不够**：CORS 不是服务端访问控制，而是浏览器的响应读取许可。`Content-Type: text/plain` 属于**简单请求**，浏览器不预检、直接发出，ACAO 只决定攻击者能否读响应——副作用（花钱）在检查之前已发生。必须同时堵死简单请求这条路径。
+
+**影响边界**：
+- 不会：偷走 API Key（Key 不出现在任何响应体）、读取本机文件（模板名正则守卫有效，实测路径穿越被拒）、篡改数据。
+- 会：**消耗 Anthropic / 高德额度**。攻击者控制 `variables`，其内容被 `JSON.stringify` 拼进 prompt，塞满 1MB 请求体（约 25 万 tokens 量级）单次即 ~$0.5（sonnet-5 输入 $2/M）；循环即放大。
+- 会：把网关当免费 LLM 代理（ACAO `*` 使响应可读，受 3 个固定模板 + output_schema 约束，价值有限但成本你担）。
+- 会：`GET /api/health` 作为简单请求可被任意页面读取，泄露"本机配置了哪些 Key"作为攻击判据。
+
+**触发条件极低**：开着网关时，在同一台机器用浏览器访问任意网页即可（第三方广告脚本足够）。绑定 `127.0.0.1` 只挡其他机器，挡不住本机浏览器——而攻击正是从本机浏览器发起。
+
+**完整修法（三层，缺一不可）**：
+
+```js
+const ALLOWED = new Set(["http://localhost:8080", "http://127.0.0.1:8080"]);
+
+// 1. Origin 不在白名单 → 拒绝请求（不是「不给 ACAO 头」）
+const origin = req.headers.origin;
+if (origin && !ALLOWED.has(origin)) return send(res, 403, { error: "origin not allowed" });
+
+// 2. 强制 application/json —— 堵死简单请求绕过预检的路径（关键）
+if (req.method === "POST" && !/^application\/json/.test(req.headers["content-type"] || ""))
+  return send(res, 415, { error: "content-type must be application/json" });
+
+// 3. ACAO 回显白名单中的具体来源，不再是 *
+"access-control-allow-origin": ALLOWED.has(origin) ? origin : "http://localhost:8080"
+```
+
+第 2 条是闭环关键：`application/json` 强制触发预检，预检被 403 拒掉后浏览器**根本不会发出真实请求**。
+
+- **S2（低危，与 S1 同源）**：`body()` 先把整个请求读进内存再判 1MB 上限，限制形同虚设——也正是上述成本放大器的入口。改为边读边累加、超限立即中断。
 - **E1**：网关地址硬编码 `http://localhost:8787`（`engine/pipeline.js`、`adapters/amap-mcp.js` 共 3 处），改了 `GATEWAY_PORT` 前端即失联。建议集中为一个可配置常量。
 - **E2**：`plan()` 返回值除契约的 `{brief, cards, budget, meta}` 外还带 `id/version/generatedAt/input/legacy`。为 H5 向后兼容，可接受；建议在交接单第 3 节补记，避免后续误判为越界。
 
@@ -96,4 +140,4 @@
 2. B2 的复现录屏或步骤（同一域连续点两次"换一个"，应得到两个不同结果或明确的"无更多候选"提示）；
 3. C1 的答复（临时替代 or 改设计）。
 
-C3–C5、S1 建议同批修复；S2、E1、E2 可留到 M2。
+**S1 与 B1、B2 同为合并前必修**（原评级为「应修」，经实测验证攻击可完整打通后升级）。C3–C5、S2 建议同批修复；E1、E2 可留到 M2。
