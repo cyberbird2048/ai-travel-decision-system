@@ -7,7 +7,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.GATEWAY_PORT || 8787);
-const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
+const deepseekKey = process.env.DEEPSEEK_API_KEY || "";
 const amapKey = process.env.AMAP_API_KEY || "";
 const allowedOrigins = new Set(["http://localhost:8080", "http://127.0.0.1:8080"]);
 let amapSession = null;
@@ -52,23 +52,25 @@ function shapeValid(value, schema) {
 }
 
 async function llm(templateName, variables) {
-  if (!anthropicKey) throw Object.assign(new Error("ANTHROPIC_API_KEY 未配置"), { status: 503 });
+  if (!deepseekKey) throw Object.assign(new Error("DEEPSEEK_API_KEY 未配置"), { status: 503 });
   if (!/^[a-z-]+$/.test(templateName)) throw new Error("非法模板名");
   const prompt = parseFrontMatter(await readFile(path.join(root, "prompts", `${templateName}.md`), "utf8"));
   for (const key of prompt.inputs) if (!Object.hasOwn(variables, key)) throw new Error(`缺少变量 ${key}`);
   let error = "";
   for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST", headers: { "content-type": "application/json", "x-api-key": anthropicKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: prompt.model, max_tokens: Number(prompt.max_tokens),
-        messages: [{ role: "user", content: `${render(prompt.body, variables)}${error ? `\n上次校验错误：${error}` : ""}` }],
-        tools: [{ name: "emit_json", description: "按 schema 返回结构化结果", input_schema: prompt.output_schema }],
-        tool_choice: { type: "tool", name: "emit_json" }
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${deepseekKey}` },
+      body: JSON.stringify({ model: prompt.model, max_tokens: Number(prompt.max_tokens), temperature: 0,
+        messages: [{ role: "system", content: "只调用 emit_json 返回符合 schema 的 JSON，不要输出普通文本。" }, { role: "user", content: `${render(prompt.body, variables)}${error ? `\n上次校验错误：${error}` : ""}` }],
+        tools: [{ type: "function", function: { name: "emit_json", description: "按 schema 返回结构化结果", parameters: prompt.output_schema } }],
+        tool_choice: { type: "function", function: { name: "emit_json" } }
       })
     });
-    if (!response.ok) throw Object.assign(new Error(`Anthropic ${response.status}`), { status: 502 });
+    if (!response.ok) throw Object.assign(new Error(`DeepSeek ${response.status}`), { status: 502 });
     const data = await response.json();
-    const value = data.content?.find((item) => item.type === "tool_use" && item.name === "emit_json")?.input;
+    const call = data.choices?.[0]?.message?.tool_calls?.find((item) => item.type === "function" && item.function?.name === "emit_json");
+    let value;
+    try { value = call ? JSON.parse(call.function.arguments) : null; } catch (_) { value = null; }
     if (shapeValid(value, prompt.output_schema)) return value;
     error = "输出不符合 schema";
   }
@@ -119,7 +121,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") return send(res, 204, {}, origin);
   if (req.method === "POST" && !/^application\/json(?:\s*;|$)/i.test(req.headers["content-type"] || "")) return send(res, 415, { error: "content-type must be application/json" }, origin);
   try {
-    if (req.method === "GET" && req.url === "/api/health") return send(res, 200, { llm: Boolean(anthropicKey), amap: Boolean(amapSession) });
+    if (req.method === "GET" && req.url === "/api/health") return send(res, 200, { llm: Boolean(deepseekKey), amap: Boolean(amapSession) });
     if (req.method === "POST" && req.url === "/api/llm") {
       const value = await body(req); return send(res, 200, { json: await llm(value.template, value.variables || {}) }, origin);
     }
