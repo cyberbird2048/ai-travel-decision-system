@@ -8,11 +8,11 @@
 
 - 保持**纯静态前端**：原生 HTML/CSS/JS，无框架、无打包器，延续现有 `index.html + app.js + adapters/ + engine/` 结构。
 - 新增一个**本地 Node 网关**（`gateway/server.mjs`，Node ≥ 20，零依赖或仅官方 SDK）：
-  - 职责 1：持有 `ANTHROPIC_API_KEY`（读环境变量，绝不进前端/仓库）并代理 LLM 调用；
+  - 职责 1：持有 `DEEPSEEK_API_KEY`（读环境变量，绝不进前端/仓库）并代理 LLM 调用；
   - 职责 2：M1 阶段挂载高德 MCP（云托管 SSE 端点）并暴露为 HTTP 工具接口。
   - 运行：`node gateway/server.mjs`（默认 8787），前端 fetch `http://localhost:8787/api/*`。
   - 网关不可用时，前端必须整体降级回现有规则引擎路径（M0 行为），界面标注"离线规划模式"。
-- LLM：Anthropic Messages API，模型 `claude-sonnet-5`，一律走 tool-use 强制 JSON 输出；批注增量调用可用 `claude-haiku-4-5-20251001`。
+- LLM：DeepSeek Chat Completions API，模型 `deepseek-v4-pro`，一律走 tool-use 强制 JSON 输出；批注增量调用可用 `deepseek-v4-flash`。
 - 不引入数据库；所有状态仍在浏览器 localStorage。
 
 ## 2. M1 任务拆解（按此文件结构交付）
