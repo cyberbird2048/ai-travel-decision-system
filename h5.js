@@ -16,6 +16,24 @@
     try { return JSON.parse(localStorage.getItem("travel-planner:last-plan") || "null"); } catch (e) { return null; }
   }
 
+  function normalizePlan(value) {
+    // v2 以 PlanCard[] 为真实状态；v1 仍按原结构渲染。
+    if (!value?.cards || !value.legacy) return value;
+    const plan = { ...value.legacy, cards: value.cards, brief: value.brief, budget: value.budget, meta: value.meta };
+    const active = value.cards.filter((card) => !["rejected", "replaced"].includes(card.state));
+    const flights = active.filter((card) => card.domain === "flight").map((card) => card.payload);
+    if (flights.length) plan.flights = { ...plan.flights, flights };
+    const transit = active.filter((card) => card.domain === "transit").map((card) => card.payload);
+    if (transit.length) plan.transit = transit;
+    const slotByDay = new Map();
+    active.filter((card) => card.domain === "slot").forEach((card) => {
+      if (!slotByDay.has(card.payload.day)) slotByDay.set(card.payload.day, []);
+      slotByDay.get(card.payload.day).push(card.payload);
+    });
+    if (slotByDay.size) plan.itinerary = plan.itinerary.map((day) => ({ ...day, slots: slotByDay.get(day.date) || day.slots }));
+    return plan;
+  }
+
   function levelText(level) {
     return { go: "适合出行", caution: "谨慎出行", "no-go": "不建议出行", unknown: "待复查" }[level] || level;
   }
@@ -131,7 +149,7 @@
     }
   }
 
-  const plan = loadPlan();
+  const plan = normalizePlan(loadPlan());
   if (!plan) {
     document.querySelector("#h5-empty").hidden = false;
     return;

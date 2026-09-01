@@ -18,6 +18,7 @@
 index.html / app.js        规划师主界面（需求输入 → 完整计划）
 h5.html / h5.js / h5.css   动态出行 H5（分享页，打开即刷新）
 engine/planner.js          规划引擎：适配度、行李清单、逐日线路
+engine/case-store.js       本地 Trip Case：回收任务、证据、授权边界
 adapters/registry.js       接口注册中心：按需接入，Key 存浏览器本地
 adapters/weather.js        天气：Open-Meteo（全球免 Key，16 天预报）
 adapters/flights.js        航班：示例库兜底 + 可选 AviationStack 实时接口
@@ -76,6 +77,7 @@ node tools/build-standalone.mjs   # 生成 dist/travel-planner.html
 - 官方警告和硬性安全阈值优先于行程沉没成本。
 - 日期超出 16 天预报窗口时不生成适配度分数，只给出复查时点。
 - 示例航班/价格明确标注，不可用于购票决策；接入实时接口后自动切换。
+- Trip Case 的询价、预订、付款等外部动作必须显式标记为“需授权”；系统可以回收证据和准备选项，但不会静默完成承诺性动作。
 - 目的地知识库为公开常识性信息，价格为量级参考，出行前以官方为准。
 
 ## 隐私与安全

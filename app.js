@@ -14,8 +14,12 @@
     funList: document.querySelector("#fun-list"), openH5: document.querySelector("#open-h5"),
     copyH5: document.querySelector("#copy-h5"), updated: document.querySelector("#updated-at"),
     settingsBtn: document.querySelector("#settings-button"), dialog: document.querySelector("#settings-dialog"),
-    adapterSettings: document.querySelector("#adapter-settings"), saveSettings: document.querySelector("#save-settings")
+    adapterSettings: document.querySelector("#adapter-settings"), saveSettings: document.querySelector("#save-settings"),
+    freeText: document.querySelector("#free-text"), budget: document.querySelector("#budget"), pace: document.querySelector("#pace"),
+    planningMode: document.querySelector("#planning-mode"), budgetBar: document.querySelector("#budget-bar"), caseSummary: document.querySelector("#case-summary"),
+    planCards: document.querySelector("#plan-cards")
   };
+  let activePlan = null;
 
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const isoLocal = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -97,6 +101,95 @@
     els.updated.textContent = `生成于 ${new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(plan.generatedAt))}`;
   }
 
+  function cardTitle(card) {
+    const p = card.payload || {};
+    return p.flightNo ? `${p.flightNo} · ${p.dep}—${p.arr}` : p.title || p.name || p.mode || p.item || card.domain;
+  }
+
+  function cardMarkup(card) {
+    const estimated = card.costEstimate?.amount ? `估算 ¥${card.costEstimate.amount}` : "无额外估算";
+    const source = card.reason?.sources?.some((value) => value === "source:knowledge-base") ? "知识库数据" : "适配器事实";
+    return `<article class="plan-card is-${esc(card.state)}" data-card-id="${esc(card.id)}">
+      <header><span>${esc(card.domain)}</span><small>${esc(source)} · ${esc(estimated)}</small></header>
+      <h4>${esc(cardTitle(card))}${card.state === "locked" ? " 🔒" : ""}</h4>
+      <p>${esc(card.reason?.text || "")}</p>
+      <div class="card-actions">
+        <button type="button" data-action="lock" title="锁定">✓</button>
+        <button type="button" data-action="swap" title="换一个">⟳</button>
+        <button type="button" data-action="reject" title="否决">✕</button>
+      </div>
+      <div class="swap-box" hidden><input type="text" placeholder="例：换个人少的" /><button type="button" data-action="confirm-swap">替换</button></div>
+    </article>`;
+  }
+
+  function syncPlanLinks(plan) {
+    try {
+      localStorage.setItem("travel-planner:last-plan", JSON.stringify(plan));
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(plan))));
+      const h5Url = `h5.html#plan=${encoded}`;
+      els.openH5.href = h5Url;
+      els.copyH5.onclick = async () => {
+        const abs = new URL(h5Url, location.href).href;
+        try { await navigator.clipboard.writeText(abs); els.copyH5.textContent = "已复制 ✓"; }
+        catch (_) { prompt("复制以下链接：", abs); }
+      };
+    } catch (_) { /* local-only enhancement */ }
+  }
+
+  function renderM1(plan) {
+    activePlan = plan;
+    els.planningMode.className = `planning-mode${plan.meta.mode === "offline" ? " is-offline" : ""}`;
+    els.planningMode.textContent = plan.meta.mode === "offline" ? "离线规划模式 · 规则引擎已接管" : "AI 规划模式 · 事实由适配器提供";
+    const over = plan.budget.limit != null && plan.budget.estimated > plan.budget.limit;
+    els.budgetBar.className = `budget-bar${over ? " is-over" : ""}`;
+    els.budgetBar.textContent = `预算估算：¥${plan.budget.estimated}${plan.budget.limit != null ? ` / 限额 ¥${plan.budget.limit}` : " / 未设限额"}${over ? " · 已超支，优先替换高费用卡片" : ""}`;
+    els.planCards.innerHTML = plan.cards.map(cardMarkup).join("");
+    syncPlanLinks(plan);
+    renderCase(plan);
+  }
+
+  function caseDateRange(plan) {
+    const dates = plan.brief?.dates || {};
+    return dates.start && dates.end ? `${dates.start} → ${dates.end}` : "待补充日期";
+  }
+
+  function ensureCase(plan) {
+    const store = window.TripCaseStore;
+    if (!store) return null;
+    const known = store.listCases().find((item) => item.profile?.planId === plan.id);
+    if (known) return known;
+    const item = store.createCase({
+      title: `${plan.brief.destination} · ${caseDateRange(plan)}`,
+      profile: { planId: plan.id, destination: plan.brief.destination, dates: plan.brief.dates }
+    });
+    store.addTask(item.id, { title: "回收外部报价与运营信息", state: "monitoring", cadence: "按需 / 可设小时级", note: "回收只记录证据，不代表已预订。" });
+    store.addTask(item.id, { title: "确认预订与付款", state: "waiting-user", requiresApproval: true, note: "必须由用户明确授权后才能完成。" });
+    return store.getCase(item.id);
+  }
+
+  function renderCase(plan) {
+    const item = ensureCase(plan);
+    if (!item || !els.caseSummary) return;
+    const stateLabel = { open: "待开始", monitoring: "回收中", "waiting-user": "待你决定", done: "已完成", blocked: "受阻" };
+    const tasks = item.tasks.map((task) => `<li><strong>${esc(stateLabel[task.state] || task.state)}</strong><span>${esc(task.title)}${task.cadence ? `<small>${esc(task.cadence)}</small>` : ""}</span>${task.requiresApproval ? "<em>需授权</em>" : ""}</li>`).join("");
+    els.caseSummary.innerHTML = `<article><div><p>LOCAL TRIP CASE</p><h4>${esc(item.title)}</h4><small>最后更新 ${new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.updatedAt))}</small></div><dl><div><dt>回收任务</dt><dd>${item.tasks.filter((task) => task.state === "monitoring").length}</dd></div><div><dt>待你决定</dt><dd>${item.tasks.filter((task) => task.state === "waiting-user").length}</dd></div><div><dt>已回收证据</dt><dd>${item.evidence.length}</dd></div></dl></article><ul>${tasks}</ul>`;
+  }
+
+  async function replaceOne(cardId, hint, rejected) {
+    const old = activePlan.cards.find((card) => card.id === cardId);
+    if (!old || old.state === "locked") throw new Error("锁定卡片不可替换");
+    if (rejected) {
+      old.state = "rejected";
+      window.PlanStore.appendEvent({ ts: new Date().toISOString(), trip: activePlan.id, type: "card-rejected", cardId,
+        note: null, costEstimate: old.costEstimate, swapHint: null, geo: old.geo });
+    }
+    const result = await window.PlannerPipeline.swapCard(activePlan, cardId, hint);
+    const oldNode = els.planCards.querySelector(`[data-card-id="${CSS.escape(cardId)}"]`);
+    oldNode.insertAdjacentHTML("afterend", cardMarkup(result.card));
+    oldNode.remove();
+    syncPlanLinks(activePlan);
+  }
+
   async function run() {
     if (!els.start.value || !els.end.value) return;
     if (els.end.value < els.start.value) { alert("返程日期需晚于出发日期"); return; }
@@ -106,13 +199,15 @@
     els.connection.querySelector("span").textContent = "规划中";
     els.planBtn.disabled = true;
     try {
-      const plan = await window.Planner.plan({
-        origin: els.origin.value, destination: els.destination.value,
-        startDate: els.start.value, endDate: els.end.value, activities
+      const plan = await window.PlannerPipeline.plan({
+        freeText: els.freeText.value, origin: els.origin.value, destination: els.destination.value,
+        dates: { start: els.start.value, end: els.end.value, flexible: false }, activities,
+        party: [], budget: { tier: "mid", amount: els.budget.value ? Number(els.budget.value) : null, currency: "CNY" },
+        pace: Number(els.pace.value)
       });
-      render(plan);
-      els.connection.className = `connection ${plan.weather.mode !== "error" ? "is-live" : ""}`;
-      els.connection.querySelector("span").textContent = plan.weather.mode !== "error" ? "数据已更新" : "天气接口异常";
+      render(plan.legacy); renderM1(plan);
+      els.connection.className = `connection ${plan.meta.mode === "online" ? "is-live" : ""}`;
+      els.connection.querySelector("span").textContent = plan.meta.mode === "online" ? "AI 规划已更新" : "离线规划模式";
     } catch (error) {
       els.connection.className = "connection";
       els.connection.querySelector("span").textContent = `失败：${error.message || error}`;
@@ -136,6 +231,20 @@
     });
   });
   els.settingsBtn.addEventListener("click", openSettings);
+  els.planCards.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-action]"); if (!button) return;
+    const node = button.closest("[data-card-id]"), cardId = node.dataset.cardId;
+    try {
+      if (button.dataset.action === "lock") {
+        const card = activePlan.cards.find((item) => item.id === cardId); card.state = "locked";
+        window.PlanStore.appendEvent({ ts: new Date().toISOString(), trip: activePlan.id, type: "card-locked", cardId,
+          note: null, costEstimate: card.costEstimate, swapHint: card.swapHint, geo: card.geo });
+        window.PlanStore.savePlan(activePlan); node.outerHTML = cardMarkup(card); syncPlanLinks(activePlan);
+      } else if (button.dataset.action === "swap") node.querySelector(".swap-box").hidden = false;
+      else if (button.dataset.action === "confirm-swap") await replaceOne(cardId, node.querySelector(".swap-box input").value.trim() || null, false);
+      else if (button.dataset.action === "reject") await replaceOne(cardId, null, true);
+    } catch (error) { alert(error.message || error); }
+  });
   els.planBtn.addEventListener("click", run);
   init();
 })();
