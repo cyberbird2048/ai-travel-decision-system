@@ -16,7 +16,7 @@
     settingsBtn: document.querySelector("#settings-button"), dialog: document.querySelector("#settings-dialog"),
     adapterSettings: document.querySelector("#adapter-settings"), saveSettings: document.querySelector("#save-settings"),
     freeText: document.querySelector("#free-text"), budget: document.querySelector("#budget"), pace: document.querySelector("#pace"),
-    planningMode: document.querySelector("#planning-mode"), budgetBar: document.querySelector("#budget-bar"),
+    planningMode: document.querySelector("#planning-mode"), budgetBar: document.querySelector("#budget-bar"), caseSummary: document.querySelector("#case-summary"),
     planCards: document.querySelector("#plan-cards")
   };
   let activePlan = null;
@@ -145,6 +145,34 @@
     els.budgetBar.textContent = `预算估算：¥${plan.budget.estimated}${plan.budget.limit != null ? ` / 限额 ¥${plan.budget.limit}` : " / 未设限额"}${over ? " · 已超支，优先替换高费用卡片" : ""}`;
     els.planCards.innerHTML = plan.cards.map(cardMarkup).join("");
     syncPlanLinks(plan);
+    renderCase(plan);
+  }
+
+  function caseDateRange(plan) {
+    const dates = plan.brief?.dates || {};
+    return dates.start && dates.end ? `${dates.start} → ${dates.end}` : "待补充日期";
+  }
+
+  function ensureCase(plan) {
+    const store = window.TripCaseStore;
+    if (!store) return null;
+    const known = store.listCases().find((item) => item.profile?.planId === plan.id);
+    if (known) return known;
+    const item = store.createCase({
+      title: `${plan.brief.destination} · ${caseDateRange(plan)}`,
+      profile: { planId: plan.id, destination: plan.brief.destination, dates: plan.brief.dates }
+    });
+    store.addTask(item.id, { title: "回收外部报价与运营信息", state: "monitoring", cadence: "按需 / 可设小时级", note: "回收只记录证据，不代表已预订。" });
+    store.addTask(item.id, { title: "确认预订与付款", state: "waiting-user", requiresApproval: true, note: "必须由用户明确授权后才能完成。" });
+    return store.getCase(item.id);
+  }
+
+  function renderCase(plan) {
+    const item = ensureCase(plan);
+    if (!item || !els.caseSummary) return;
+    const stateLabel = { open: "待开始", monitoring: "回收中", "waiting-user": "待你决定", done: "已完成", blocked: "受阻" };
+    const tasks = item.tasks.map((task) => `<li><strong>${esc(stateLabel[task.state] || task.state)}</strong><span>${esc(task.title)}${task.cadence ? `<small>${esc(task.cadence)}</small>` : ""}</span>${task.requiresApproval ? "<em>需授权</em>" : ""}</li>`).join("");
+    els.caseSummary.innerHTML = `<article><div><p>LOCAL TRIP CASE</p><h4>${esc(item.title)}</h4><small>最后更新 ${new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.updatedAt))}</small></div><dl><div><dt>回收任务</dt><dd>${item.tasks.filter((task) => task.state === "monitoring").length}</dd></div><div><dt>待你决定</dt><dd>${item.tasks.filter((task) => task.state === "waiting-user").length}</dd></div><div><dt>已回收证据</dt><dd>${item.evidence.length}</dd></div></dl></article><ul>${tasks}</ul>`;
   }
 
   async function replaceOne(cardId, hint, rejected) {

@@ -80,6 +80,21 @@ form button:hover { background: var(--green); }
 .planning-mode.is-offline { border-color: var(--amber); color: var(--amber); }
 .budget-bar { margin-bottom: 28px; padding: 16px 18px; border: 1px solid var(--line); background: #fff; font-weight: 700; }
 .budget-bar.is-over { border-color: var(--red); color: var(--red); }
+.case-workspace { margin: 0 0 34px; }
+.case-summary { margin-top: 14px; border: 1px solid var(--line); background: #fff; }
+.case-summary > article { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px; border-bottom: 1px solid var(--line); }
+.case-summary p { margin: 0 0 5px; color: var(--green); font-size: 10px; font-weight: 700; letter-spacing: .1em; }
+.case-summary h4 { margin: 0 0 5px; font-size: 18px; }
+.case-summary small { color: var(--muted); font-size: 11px; }
+.case-summary dl { display: flex; gap: 24px; margin: 0; }
+.case-summary dt { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.case-summary dd { margin: 3px 0 0; color: var(--green); font-family: "Songti SC", serif; font-size: 25px; }
+.case-summary ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.case-summary li { display: grid; grid-template-columns: auto 1fr auto; gap: 9px; align-items: center; padding: 13px 18px; border-right: 1px solid var(--line); font-size: 13px; }
+.case-summary li:last-child { border-right: 0; }
+.case-summary li strong { color: var(--green); font-size: 10px; }
+.case-summary li span small { display: block; margin-top: 2px; }
+.case-summary li em { padding: 3px 6px; border: 1px solid var(--amber); color: var(--amber); font-size: 10px; font-style: normal; white-space: nowrap; }
 .card-workspace { margin-bottom: 42px; }
 .plan-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
 .plan-card { padding: 16px; border: 1px solid var(--line); background: #fff; }
@@ -154,6 +169,7 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 22px
   .verdict-badge { grid-column: 2; justify-self: start; }
   .weather-days, .decision-grid { grid-template-columns: 1fr; }
   .decision-grid { gap: 38px; }
+  .case-summary > article { align-items: flex-start; flex-direction: column; }
   .rule-note { grid-template-columns: 1fr; gap: 8px; }
 }
 
@@ -170,6 +186,10 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 22px
   .score-copy h2 { font-size: 32px; }
   .verdict-badge { grid-column: auto; }
   .weather-days article { grid-template-columns: 74px 1fr; gap: 10px; }
+  .case-summary dl { width: 100%; justify-content: space-between; gap: 12px; }
+  .case-summary ul { grid-template-columns: 1fr; }
+  .case-summary li { border-right: 0; border-bottom: 1px solid var(--line); }
+  .case-summary li:last-child { border-bottom: 0; }
   .weather-days span { grid-column: 2; font-size: 22px; }
   .weather-days small { grid-column: 2; }
   footer { display: grid; }
